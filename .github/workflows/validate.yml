@@ -1,0 +1,79 @@
+name: validate
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "README.md"
+      - ".github/workflows/validate.yml"
+  push:
+    branches: [main]
+
+jobs:
+  lint-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every skill has SKILL.md and README.md
+        run: |
+          set -euo pipefail
+          fail=0
+          for dir in skills/*/; do
+            name="$(basename "$dir")"
+            for f in SKILL.md README.md; do
+              if [ ! -f "$dir$f" ]; then
+                echo "::error file=$dir$f::missing $f in skill '$name'"
+                fail=1
+              fi
+            done
+          done
+          exit $fail
+
+      - name: Validate SKILL.md frontmatter (name + description)
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in skills/*/SKILL.md; do
+            # Extract frontmatter block (between first two `---` lines)
+            fm=$(awk '/^---$/{c++; next} c==1{print} c==2{exit}' "$f")
+            if [ -z "$fm" ]; then
+              echo "::error file=$f::no YAML frontmatter"
+              fail=1; continue
+            fi
+            if ! echo "$fm" | grep -qE '^name:\s*\S'; then
+              echo "::error file=$f::frontmatter missing 'name:'"
+              fail=1
+            fi
+            if ! echo "$fm" | grep -qE '^description:\s*\S'; then
+              echo "::error file=$f::frontmatter missing 'description:'"
+              fail=1
+            fi
+            # frontmatter name must match folder
+            folder="$(basename "$(dirname "$f")")"
+            fmname=$(echo "$fm" | grep -E '^name:' | head -1 | sed -E 's/^name:\s*//; s/[[:space:]]*$//')
+            if [ "$fmname" != "$folder" ]; then
+              echo "::error file=$f::frontmatter name '$fmname' does not match folder '$folder'"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Check root README lists every skill
+        run: |
+          set -euo pipefail
+          fail=0
+          for dir in skills/*/; do
+            name="$(basename "$dir")"
+            if ! grep -qE "\[$name\]\(skills/$name\)" README.md; then
+              echo "::error file=README.md::skill '$name' not linked from root README table"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Lint install.sh
+        run: |
+          if command -v shellcheck >/dev/null; then
+            shellcheck install.sh || true
+          fi
+          bash -n install.sh
