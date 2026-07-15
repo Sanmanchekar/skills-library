@@ -16,37 +16,61 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
   | bash -s -- code-review
 ```
 
-You'll be prompted:
+You'll be shown a **checkbox picker** — pick as many agents as you want in one go.
+
+The picker prefers a real TUI checkbox widget in this order:
+
+| If installed | You get |
+|---|---|
+| `whiptail` (default on most Linux distros) | Native TUI checklist — SPACE to toggle, ENTER to confirm |
+| `gum` (charmbracelet) | Modern styled multi-select — `x` to toggle, ENTER to confirm |
+| `dialog` | Classic TUI checklist |
+| None of the above | Numbered fallback (multi-select via space-separated numbers) |
+
+Numbered fallback looks like:
 
 ```
-Which AI coding agent do you want to install this skill for?
+┌─────────────────────────────────────────────────────────────┐
+│  Select target agents (checkbox-style, multi-select)        │
+│  Enter the numbers you want, separated by spaces.           │
+│  Example: 1 3 9    → claude-code, cursor, copilot-chat     │
+│  Enter "all"        → install for every agent               │
+└─────────────────────────────────────────────────────────────┘
 
-  1) claude-code    (Anthropic Claude Code CLI)
-  2) codex-cli      (OpenAI Codex CLI)
-  3) cursor         (Cursor IDE)
-  4) aider          (Aider CLI)
-  5) continue       (Continue for VS Code / JetBrains)
-  6) cline          (Cline for VS Code)
-  7) windsurf       (Windsurf / Codeium IDE)
-  8) cody           (Sourcegraph Cody)
-  9) copilot-chat   (GitHub Copilot Chat — .github/copilot-instructions.md)
- 10) roo-code       (Roo Code for VS Code)
- 11) zed            (Zed AI)
- 12) all            (install for every detected agent on this machine)
+  [ ] 1)  claude-code    (Anthropic Claude Code CLI)
+  [ ] 2)  codex-cli      (OpenAI Codex CLI)
+  [ ] 3)  cursor         (Cursor IDE)
+  [ ] 4)  aider          (Aider CLI)
+  [ ] 5)  continue       (Continue for VS Code / JetBrains)
+  [ ] 6)  cline          (Cline for VS Code)
+  [ ] 7)  windsurf       (Windsurf / Codeium IDE)
+  [ ] 8)  cody           (Sourcegraph Cody)
+  [ ] 9)  copilot-chat   (GitHub Copilot Chat — .github/copilot-instructions.md)
+  [ ] 10) roo-code       (Roo Code for VS Code)
+  [ ] 11) zed            (Zed AI)
 
-Enter number or agent name [1]:
+Your selection: 1 3 9
 ```
 
 ## Non-interactive
 
-Pass `--agent` and optionally `--scope`:
+Pass `--agent` (single, comma-separated, or `all`) and optionally `--scope`:
 
 ```bash
+# Single agent
 curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/install.sh \
   | bash -s -- code-review --agent claude-code --scope user
+
+# Multiple agents (comma-separated)
+curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/install.sh \
+  | bash -s -- code-review --agent claude-code,cursor,aider
+
+# Every supported agent
+curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/install.sh \
+  | bash -s -- code-review --agent all
 ```
 
-- `--agent`: one of the 11 supported agents, or `all`
+- `--agent`: single agent, comma-separated list, or `all`
 - `--scope`: `user` (global, default) or `project` (installs into current repo)
 
 ## Install into a project (not user-global)
