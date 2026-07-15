@@ -16,41 +16,33 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
   | bash -s -- code-review
 ```
 
-You'll be shown a **checkbox picker** — pick as many agents as you want in one go.
+You'll be shown a **pure-bash checkbox picker** — real arrow-key navigation, no dependencies, works on macOS default bash (3.2) and any modern bash.
 
-The picker prefers a real TUI checkbox widget in this order:
+```
+  Select target agents for 'code-review'
+  ↑↓ move · SPACE toggle · A all · ENTER confirm · ESC cancel
 
-| If installed | You get |
+  ▶ [ ] claude-code    Anthropic Claude Code CLI
+    [ ] codex-cli      OpenAI Codex CLI
+    [x] cursor         Cursor IDE
+    [ ] aider          Aider CLI
+    [x] continue       Continue (VS Code / JetBrains)
+    [ ] cline          Cline (VS Code)
+    ...
+```
+
+**Keys**
+
+| Key | Action |
 |---|---|
-| `whiptail` (default on most Linux distros) | Native TUI checklist — SPACE to toggle, ENTER to confirm |
-| `gum` (charmbracelet) | Modern styled multi-select — `x` to toggle, ENTER to confirm |
-| `dialog` | Classic TUI checklist |
-| None of the above | Numbered fallback (multi-select via space-separated numbers) |
+| ↑ / ↓ | Move cursor (wraps at top/bottom) |
+| SPACE | Toggle the highlighted item |
+| A | Toggle all (if any unselected → select all; else deselect all) |
+| ENTER | Confirm selection and install |
+| ESC | Cancel (1s delay — Q is instant) |
+| Q | Cancel immediately |
 
-Numbered fallback looks like:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Select target agents (checkbox-style, multi-select)        │
-│  Enter the numbers you want, separated by spaces.           │
-│  Example: 1 3 9    → claude-code, cursor, copilot-chat     │
-│  Enter "all"        → install for every agent               │
-└─────────────────────────────────────────────────────────────┘
-
-  [ ] 1)  claude-code    (Anthropic Claude Code CLI)
-  [ ] 2)  codex-cli      (OpenAI Codex CLI)
-  [ ] 3)  cursor         (Cursor IDE)
-  [ ] 4)  aider          (Aider CLI)
-  [ ] 5)  continue       (Continue for VS Code / JetBrains)
-  [ ] 6)  cline          (Cline for VS Code)
-  [ ] 7)  windsurf       (Windsurf / Codeium IDE)
-  [ ] 8)  cody           (Sourcegraph Cody)
-  [ ] 9)  copilot-chat   (GitHub Copilot Chat — .github/copilot-instructions.md)
-  [ ] 10) roo-code       (Roo Code for VS Code)
-  [ ] 11) zed            (Zed AI)
-
-Your selection: 1 3 9
-```
+If ENTER is pressed with nothing selected, the installer shows "Nothing selected" and exits without installing anything.
 
 ## Non-interactive
 
