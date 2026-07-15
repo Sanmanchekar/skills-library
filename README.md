@@ -36,7 +36,15 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
 | Skill | Role | Description |
 |---|---|---|
 | [code-review](skills/code-review) | dev | Stateful PR review with severity-tagged findings, ```suggestion blocks, and iterative recheck |
+| [security-review](skills/security-review) | dev | OWASP Top 10 diff review — injection, IDOR, secrets, SSRF, XSS, CSRF, crypto, deps — with CWE tags and exploit sketches |
 | [rca](skills/rca) | dev | Phased incident root-cause orchestration with timeline, contributing factors, action items |
+| [debug](skills/debug) | dev | Systematic hypothesis → instrument → narrow loop. Stack-agnostic. Blocks print-statement flailing |
+| [perf-analysis](skills/perf-analysis) | dev | Measure → profile → categorize → fix → re-measure. Detects N+1, missing indexes, hot loops, contention |
+| [db-migration](skills/db-migration) | dev | Safe schema change review — backward-compat, lock analysis, online-safe patterns, rollback plan |
+| [dependency-upgrade](skills/dependency-upgrade) | dev | Version-bump migration planner — categorizes breaking changes, sequences PRs, plans rollout |
+| [refactor](skills/refactor) | dev | Safe behavior-preserving restructure — tests before touching code, one mechanical step per commit |
+| [onboarding](skills/onboarding) | dev | Repo walkthrough for a new joiner from the codebase — stack, run in 5 min, 5 files to read, landmines |
+| [docs-writer](skills/docs-writer) | dev | README + API reference + module docs generated from source, examples cribbed from tests |
 | [api-design-go-gin](skills/api-design-go-gin) | backend | REST API design review for Go + Gin: idempotency, pagination, error envelopes, middleware ordering |
 | [api-design-node-express](skills/api-design-node-express) | backend | REST API design review for Node.js + Express: validation, async error handling, rate limiting |
 | [api-design-python-fastapi](skills/api-design-python-fastapi) | backend | REST API design review for Python + FastAPI: Pydantic contracts, dependency injection, async patterns |
@@ -48,9 +56,14 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
 | [bug-repro](skills/bug-repro) | qa | Turn a bug report into a minimal reproduction with steps, expected vs actual, environment |
 | [observability](skills/observability) | devops | Generate Grafana / Loki / Prometheus dashboards from service code |
 | [runbook](skills/runbook) | devops | Incident runbook scaffolding — symptoms, triage, mitigations, rollback, escalation |
+| [oncall-triage](skills/oncall-triage) | devops | Alert-to-action decision tree — severity, first-5-min checklist, mitigate vs investigate, escalation |
+| [log-analysis](skills/log-analysis) | devops | Parse and correlate logs into a UTC timeline — retries, cascades, latency spikes, error bursts |
 | [iac-review](skills/iac-review) | devops | Terraform / ECS / Helm config review for security, drift, and cost |
 | [prd-writer](skills/prd-writer) | pm | Turn a rough ask into a structured PRD — problem, users, scope, success metrics |
 | [release-notes](skills/release-notes) | pm | Changelog / release notes from merged PRs, grouped by user impact |
+| [estimation](skills/estimation) | pm | Task breakdown with T-shirt sizes, risk flags, dependencies, best/likely/worst range |
+| [retro](skills/retro) | pm | Blameless sprint / incident retro facilitator — every action has owner + date |
+| [interview-kit](skills/interview-kit) | hiring | Role-scoped interview questions with reference solutions and calibrated rubrics |
 | [commit-message](skills/commit-message) | shared | Conventional commit message generator with scope + BREAKING CHANGE detection |
 | [pr-description](skills/pr-description) | shared | PR description generator — summary, test plan, screenshots, risk callouts |
 | [adr](skills/adr) | shared | Architecture Decision Record generator — context, options, decision, consequences |
