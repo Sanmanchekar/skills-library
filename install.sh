@@ -76,109 +76,132 @@ fetch() {
 }
 
 # ---- interactive checkbox picker ----
-# Prefer a real TUI widget. Fall back to a numbered multi-select.
+# Pure-bash TUI: arrow keys, SPACE to toggle, A to toggle all,
+# ENTER to submit, ESC/Q to cancel. Zero external dependencies.
 # Sets global AGENTS_LIST (space-separated agent names).
 AGENTS_LIST=""
 
-pick_agents_interactive() {
-  # whiptail: broadly available on Linux, honors /dev/tty
-  if command -v whiptail >/dev/null 2>&1; then
-    local sel
-    sel=$(whiptail --title "skills-library — install $SKILL_NAME" \
-      --checklist "SPACE to toggle · ENTER to confirm · ESC to cancel" \
-      22 74 13 \
-      claude-code   "Anthropic Claude Code CLI"           OFF \
-      codex-cli     "OpenAI Codex CLI"                    OFF \
-      cursor        "Cursor IDE"                          OFF \
-      aider         "Aider CLI"                           OFF \
-      continue      "Continue (VS Code / JetBrains)"      OFF \
-      cline         "Cline (VS Code)"                     OFF \
-      windsurf      "Windsurf / Codeium IDE"              OFF \
-      cody          "Sourcegraph Cody"                    OFF \
-      copilot-chat  "GitHub Copilot Chat (.github/...)"   OFF \
-      roo-code      "Roo Code (VS Code)"                  OFF \
-      zed           "Zed AI"                              OFF \
-      3>&1 1>&2 2>&3 </dev/tty) || { echo "Cancelled." >&2; exit 1; }
-    # whiptail returns space-separated, quoted tags: "cursor" "aider"
-    AGENTS_LIST=$(echo "$sel" | tr -d '"')
-    return 0
-  fi
+# Descriptions parallel to ALL_AGENTS
+ALL_AGENT_DESCS=(
+  "Anthropic Claude Code CLI"
+  "OpenAI Codex CLI"
+  "Cursor IDE"
+  "Aider CLI"
+  "Continue (VS Code / JetBrains)"
+  "Cline (VS Code)"
+  "Windsurf / Codeium IDE"
+  "Sourcegraph Cody"
+  "GitHub Copilot Chat (.github/copilot-instructions.md)"
+  "Roo Code (VS Code)"
+  "Zed AI"
+)
 
-  # gum: charmbracelet — clean UX if the user has it installed
-  if command -v gum >/dev/null 2>&1; then
-    AGENTS_LIST=$(printf '%s\n' "${ALL_AGENTS[@]}" \
-      | gum choose --no-limit --header "Select target agents (x to toggle, enter to confirm)" \
-      < /dev/tty | tr '\n' ' ')
-    [ -z "$AGENTS_LIST" ] && { echo "Nothing selected." >&2; exit 1; }
-    return 0
-  fi
+# Renders the menu to /dev/tty, reads keypresses from /dev/tty, sets AGENTS_LIST.
+checkbox_picker() {
+  local n=${#ALL_AGENTS[@]}
+  local selected=()
+  local i cursor=0
+  for ((i=0; i<n; i++)); do selected+=(0); done
 
-  # dialog: same widget family as whiptail
-  if command -v dialog >/dev/null 2>&1; then
-    local sel
-    sel=$(dialog --stdout --separate-output --checklist "Select target agents" \
-      22 74 13 \
-      claude-code   "Anthropic Claude Code CLI"           off \
-      codex-cli     "OpenAI Codex CLI"                    off \
-      cursor        "Cursor IDE"                          off \
-      aider         "Aider CLI"                           off \
-      continue      "Continue (VS Code / JetBrains)"      off \
-      cline         "Cline (VS Code)"                     off \
-      windsurf      "Windsurf / Codeium IDE"              off \
-      cody          "Sourcegraph Cody"                    off \
-      copilot-chat  "GitHub Copilot Chat"                 off \
-      roo-code      "Roo Code (VS Code)"                  off \
-      zed           "Zed AI"                              off \
-      </dev/tty) || { echo "Cancelled." >&2; exit 1; }
-    AGENTS_LIST=$(echo "$sel" | tr '\n' ' ')
-    return 0
-  fi
+  # Terminal state: hide cursor now; always restore on any exit
+  printf '\e[?25h' >/dev/tty  # ensure known state
+  printf '\e[?25l' >/dev/tty
+  local cleanup='printf "\e[?25h\n" >/dev/tty'
+  trap "$cleanup" EXIT INT TERM HUP
 
-  # Fallback: numbered checklist, user types space-separated numbers
-  cat <<'MENU' >&2
-
-┌─────────────────────────────────────────────────────────────┐
-│  Select target agents (checkbox-style, multi-select)        │
-│  Enter the numbers you want, separated by spaces.           │
-│  Example: 1 3 9    → claude-code, cursor, copilot-chat     │
-│  Enter "all"        → install for every agent               │
-│  Enter "*" or ENTER on empty line → cancel                  │
-└─────────────────────────────────────────────────────────────┘
-
-  [ ] 1)  claude-code    (Anthropic Claude Code CLI)
-  [ ] 2)  codex-cli      (OpenAI Codex CLI)
-  [ ] 3)  cursor         (Cursor IDE)
-  [ ] 4)  aider          (Aider CLI)
-  [ ] 5)  continue       (Continue for VS Code / JetBrains)
-  [ ] 6)  cline          (Cline for VS Code)
-  [ ] 7)  windsurf       (Windsurf / Codeium IDE)
-  [ ] 8)  cody           (Sourcegraph Cody)
-  [ ] 9)  copilot-chat   (GitHub Copilot Chat — .github/copilot-instructions.md)
-  [ ] 10) roo-code       (Roo Code for VS Code)
-  [ ] 11) zed            (Zed AI)
-
-MENU
-  printf "Your selection: " >&2
-  local input
-  read -r input </dev/tty || { echo "Cancelled." >&2; exit 1; }
-  input="${input:-}"
-  if [ -z "$input" ] || [ "$input" = "*" ]; then
-    echo "Cancelled." >&2; exit 1
-  fi
-  if [ "$input" = "all" ]; then
-    AGENTS_LIST="${ALL_AGENTS[*]}"
-    return 0
-  fi
-  # Map numbers → agent names
-  local picked=""
-  for n in $input; do
-    if ! [[ "$n" =~ ^[0-9]+$ ]] || [ "$n" -lt 1 ] || [ "$n" -gt "${#ALL_AGENTS[@]}" ]; then
-      echo "Invalid selection: '$n' (must be 1..${#ALL_AGENTS[@]}, 'all', or empty)" >&2
-      exit 2
-    fi
-    picked="$picked ${ALL_AGENTS[$((n - 1))]}"
+  # Draw column widths — pad agent name so descriptions align
+  local maxname=0
+  for name in "${ALL_AGENTS[@]}"; do
+    [ ${#name} -gt "$maxname" ] && maxname=${#name}
   done
-  AGENTS_LIST="${picked# }"
+
+  local first=1
+  while true; do
+    if [ $first -eq 0 ]; then
+      printf '\e[%dA' $((n + 3)) >/dev/tty
+    fi
+    first=0
+
+    # Header
+    printf '\e[2K\r  \e[1mSelect target agents for '\''%s'\''\e[0m\n' "$SKILL_NAME" >/dev/tty
+    printf '\e[2K\r  \e[2m↑↓ move · SPACE toggle · A all · ENTER confirm · ESC cancel\e[0m\n' >/dev/tty
+    printf '\e[2K\r\n' >/dev/tty
+
+    # Items
+    for ((i=0; i<n; i++)); do
+      local mark=" "
+      [ "${selected[i]}" = "1" ] && mark="x"
+      local line
+      printf -v line "[%s] %-*s  \e[2m%s\e[0m" "$mark" "$maxname" "${ALL_AGENTS[i]}" "${ALL_AGENT_DESCS[i]}"
+      if [ "$i" = "$cursor" ]; then
+        printf '\e[2K\r  \e[7m▶ %s\e[0m\n' "$line" >/dev/tty
+      else
+        printf '\e[2K\r    %s\n' "$line" >/dev/tty
+      fi
+    done
+
+    # Read one keypress; handle escape sequences for arrow keys
+    local key seq
+    # -n1 (lowercase) for bash 3.2 compat (macOS default). ENTER returns "" (newline is default delimiter);
+    # case pattern below handles that alongside '\n' and '\r'.
+    IFS= read -rsn1 key </dev/tty || { eval "$cleanup"; return 1; }
+    case "$key" in
+      $'\e')
+        # Arrow keys are ESC + [ + A/B/C/D — read 2 more chars with a tiny timeout
+        seq=""
+        # Arrow key: 2 more chars follow ESC almost instantly (already buffered).
+        # Bash 3.2 rejects fractional -t; integer 1 is the smallest allowed.
+        # Bare ESC (no follow-up) → 1s wait then empty seq → cancel below.
+        # (Q also cancels instantly, so the 1s ESC delay only bites the rare ESC-alone user.)
+        IFS= read -rsn2 -t 1 seq </dev/tty || true
+        case "$seq" in
+          '[A') cursor=$(( (cursor - 1 + n) % n )) ;;   # up
+          '[B') cursor=$(( (cursor + 1) % n )) ;;       # down
+          '')   eval "$cleanup"; echo "Cancelled." >&2; return 1 ;;
+        esac
+        ;;
+      ' ')
+        if [ "${selected[cursor]}" = "1" ]; then selected[cursor]=0; else selected[cursor]=1; fi
+        ;;
+      'a'|'A')
+        # Toggle all: if any unselected → select all; else deselect all
+        local any_unsel=0
+        for ((i=0; i<n; i++)); do
+          [ "${selected[i]}" = "0" ] && any_unsel=1
+        done
+        local newval=0
+        [ $any_unsel -eq 1 ] && newval=1
+        for ((i=0; i<n; i++)); do selected[i]=$newval; done
+        ;;
+      $'\n'|$'\r'|'')
+        eval "$cleanup"
+        local result=""
+        for ((i=0; i<n; i++)); do
+          [ "${selected[i]}" = "1" ] && result="$result ${ALL_AGENTS[i]}"
+        done
+        if [ -z "$result" ]; then
+          echo "Nothing selected. Press SPACE to toggle items before ENTER." >&2
+          return 1
+        fi
+        AGENTS_LIST="${result# }"
+        return 0
+        ;;
+      'q'|'Q')
+        eval "$cleanup"
+        echo "Cancelled." >&2
+        return 1
+        ;;
+    esac
+  done
+}
+
+pick_agents_interactive() {
+  if [ ! -e /dev/tty ] || [ ! -r /dev/tty ]; then
+    echo "install.sh needs an interactive terminal. Non-interactive?" >&2
+    echo "Use --agent <name>[,<name>...] or --agent all" >&2
+    exit 2
+  fi
+  checkbox_picker || exit 1
 }
 
 # ---- resolve the agent list from CLI flag or interactive picker ----
