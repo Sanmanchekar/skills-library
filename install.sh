@@ -248,14 +248,18 @@ install_for() {
       local tmp; tmp="$(mktemp)"
       fetch "SKILL.md" "$tmp" || return 1
       touch "$dest_dir/copilot-instructions.md"
-      if ! grep -q "<!-- skill:$SKILL_NAME -->" "$dest_dir/copilot-instructions.md"; then
-        {
-          echo ""
-          echo "<!-- skill:$SKILL_NAME -->"
-          awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2{print}' "$tmp"
-          echo "<!-- /skill:$SKILL_NAME -->"
-        } >> "$dest_dir/copilot-instructions.md"
+      # If a prior block for this skill exists, remove it so we replace (not skip).
+      # -i.bak works on both BSD sed (macOS) and GNU sed (Linux); then clean the backup.
+      if grep -q "<!-- skill:$SKILL_NAME -->" "$dest_dir/copilot-instructions.md"; then
+        sed -i.bak "/<!-- skill:$SKILL_NAME -->/,/<!-- \/skill:$SKILL_NAME -->/d" \
+          "$dest_dir/copilot-instructions.md"
+        rm -f "$dest_dir/copilot-instructions.md.bak"
       fi
+      {
+        echo "<!-- skill:$SKILL_NAME -->"
+        awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2{print}' "$tmp"
+        echo "<!-- /skill:$SKILL_NAME -->"
+      } >> "$dest_dir/copilot-instructions.md"
       rm -f "$tmp"
       ;;
     roo-code)
