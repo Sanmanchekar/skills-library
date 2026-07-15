@@ -16,33 +16,38 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
   | bash -s -- code-review
 ```
 
-You'll be shown a **pure-bash checkbox picker** — real arrow-key navigation, no dependencies, works on macOS default bash (3.2) and any modern bash.
+You'll be shown a **pure-bash checkbox picker** with visible Submit / Cancel buttons. Real arrow-key navigation, no dependencies, works on macOS default bash (3.2) and any modern bash.
 
 ```
   Select target agents for 'code-review'
-  ↑↓ move · SPACE toggle · A all · ENTER confirm · ESC cancel
+  ↑↓ move · ENTER toggle (on agent) or activate (on button) · A toggle all · ESC cancel
 
   ▶ [ ] claude-code    Anthropic Claude Code CLI
-    [ ] codex-cli      OpenAI Codex CLI
-    [x] cursor         Cursor IDE
-    [ ] aider          Aider CLI
-    [x] continue       Continue (VS Code / JetBrains)
-    [ ] cline          Cline (VS Code)
+    [x] codex-cli      OpenAI Codex CLI
+    [ ] cursor         Cursor IDE
+    [x] aider          Aider CLI
+    [ ] continue       Continue (VS Code / JetBrains)
     ...
+    [ ] zed            Zed AI
+    ─────────────────────────────────────────────────────────
+    [ Submit — install for 2 selected ]
+    [ Cancel ]
 ```
 
 **Keys**
 
 | Key | Action |
 |---|---|
-| ↑ / ↓ | Move cursor (wraps at top/bottom) |
-| SPACE | Toggle the highlighted item |
-| A | Toggle all (if any unselected → select all; else deselect all) |
-| ENTER | Confirm selection and install |
-| ESC | Cancel (1s delay — Q is instant) |
+| ↑ / ↓ | Move cursor through agents + Submit + Cancel (wraps at top / bottom) |
+| ENTER on an agent | Toggle that agent's checkbox |
+| ENTER on **Submit** | Install for the selected agents |
+| ENTER on **Cancel** | Abort without installing |
+| SPACE | Also toggles the highlighted agent (alt to ENTER) |
+| A | Toggle all agents (select-all / deselect-all) |
+| ESC | Cancel (~1s delay) |
 | Q | Cancel immediately |
 
-If ENTER is pressed with nothing selected, the installer shows "Nothing selected" and exits without installing anything.
+The Submit button's label shows the current selection count in real time (e.g. `[ Submit — install for 3 selected ]`) and is dimmed when no agents are selected. Pressing ENTER on Submit with 0 selected is a no-op — navigate to Cancel or press ESC/Q to abort.
 
 ## Non-interactive
 

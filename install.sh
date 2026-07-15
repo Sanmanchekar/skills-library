@@ -97,8 +97,21 @@ ALL_AGENT_DESCS=(
 )
 
 # Renders the menu to /dev/tty, reads keypresses from /dev/tty, sets AGENTS_LIST.
+#
+# Layout — cursor navigates through n agents PLUS two visible buttons:
+#   positions 0..n-1  → agent rows        (ENTER or SPACE toggles the checkbox)
+#   position  n       → "Submit selected" (ENTER submits, shows count)
+#   position  n+1     → "Cancel"          (ENTER cancels)
+#
+# So ENTER is the primary interaction:
+#   ENTER on an agent row  = toggle that agent
+#   ENTER on Submit        = install for selected agents
+#   ENTER on Cancel        = abort
 checkbox_picker() {
   local n=${#ALL_AGENTS[@]}
+  local submit_pos=$n
+  local cancel_pos=$((n + 1))
+  local total=$((n + 2))   # cursor range: 0..total-1
   local selected=()
   local i cursor=0
   for ((i=0; i<n; i++)); do selected+=(0); done
@@ -109,25 +122,31 @@ checkbox_picker() {
   local cleanup='printf "\e[?25h\n" >/dev/tty'
   trap "$cleanup" EXIT INT TERM HUP
 
-  # Draw column widths — pad agent name so descriptions align
+  # Column width — pad agent name so descriptions align
   local maxname=0
   for name in "${ALL_AGENTS[@]}"; do
     [ ${#name} -gt "$maxname" ] && maxname=${#name}
   done
 
+  # Total drawn lines to move up between redraws:
+  #   3 header (title + hint + blank)
+  # + n agent rows
+  # + 3 footer (separator + Submit + Cancel)
+  local menu_height=$((3 + n + 3))
+
   local first=1
   while true; do
     if [ $first -eq 0 ]; then
-      printf '\e[%dA' $((n + 3)) >/dev/tty
+      printf '\e[%dA' "$menu_height" >/dev/tty
     fi
     first=0
 
-    # Header
+    # ---- Header ----
     printf '\e[2K\r  \e[1mSelect target agents for '\''%s'\''\e[0m\n' "$SKILL_NAME" >/dev/tty
-    printf '\e[2K\r  \e[2m↑↓ move · SPACE toggle · A all · ENTER confirm · ESC cancel\e[0m\n' >/dev/tty
+    printf '\e[2K\r  \e[2m↑↓ move · ENTER toggle (on agent) or activate (on button) · A toggle all · ESC cancel\e[0m\n' >/dev/tty
     printf '\e[2K\r\n' >/dev/tty
 
-    # Items
+    # ---- Agent rows ----
     for ((i=0; i<n; i++)); do
       local mark=" "
       [ "${selected[i]}" = "1" ] && mark="x"
@@ -140,31 +159,65 @@ checkbox_picker() {
       fi
     done
 
-    # Read one keypress; handle escape sequences for arrow keys
+    # ---- Footer buttons ----
+    # Count currently selected
+    local sel_count=0
+    for ((i=0; i<n; i++)); do
+      [ "${selected[i]}" = "1" ] && sel_count=$((sel_count + 1))
+    done
+
+    printf '\e[2K\r  \e[2m─────────────────────────────────────────────────────────\e[0m\n' >/dev/tty
+
+    # Submit button — highlighted when cursor is on it
+    local submit_label
+    printf -v submit_label "[ Submit — install for %d selected ]" "$sel_count"
+    if [ "$cursor" = "$submit_pos" ]; then
+      # If nothing selected, dim/warn tint on the submit label
+      if [ "$sel_count" = "0" ]; then
+        printf '\e[2K\r  \e[7;33m▶ %s  (nothing selected)\e[0m\n' "$submit_label" >/dev/tty
+      else
+        printf '\e[2K\r  \e[7;32m▶ %s\e[0m\n' "$submit_label" >/dev/tty
+      fi
+    else
+      if [ "$sel_count" = "0" ]; then
+        printf '\e[2K\r    \e[2m%s\e[0m\n' "$submit_label" >/dev/tty
+      else
+        printf '\e[2K\r    \e[32m%s\e[0m\n' "$submit_label" >/dev/tty
+      fi
+    fi
+
+    # Cancel button
+    if [ "$cursor" = "$cancel_pos" ]; then
+      printf '\e[2K\r  \e[7;31m▶ [ Cancel ]\e[0m\n' >/dev/tty
+    else
+      printf '\e[2K\r    \e[31m[ Cancel ]\e[0m\n' >/dev/tty
+    fi
+
+    # ---- Read keypress ----
     local key seq
     # -n1 (lowercase) for bash 3.2 compat (macOS default). ENTER returns "" (newline is default delimiter);
     # case pattern below handles that alongside '\n' and '\r'.
     IFS= read -rsn1 key </dev/tty || { eval "$cleanup"; return 1; }
     case "$key" in
       $'\e')
-        # Arrow keys are ESC + [ + A/B/C/D — read 2 more chars with a tiny timeout
+        # Arrow key: ESC + [ + A/B/C/D. Bash 3.2 rejects fractional -t; integer 1 is smallest.
+        # Bare ESC → 1s wait → empty seq → cancel below. (Q cancels instantly.)
         seq=""
-        # Arrow key: 2 more chars follow ESC almost instantly (already buffered).
-        # Bash 3.2 rejects fractional -t; integer 1 is the smallest allowed.
-        # Bare ESC (no follow-up) → 1s wait then empty seq → cancel below.
-        # (Q also cancels instantly, so the 1s ESC delay only bites the rare ESC-alone user.)
         IFS= read -rsn2 -t 1 seq </dev/tty || true
         case "$seq" in
-          '[A') cursor=$(( (cursor - 1 + n) % n )) ;;   # up
-          '[B') cursor=$(( (cursor + 1) % n )) ;;       # down
+          '[A') cursor=$(( (cursor - 1 + total) % total )) ;;   # up
+          '[B') cursor=$(( (cursor + 1) % total )) ;;           # down
           '')   eval "$cleanup"; echo "Cancelled." >&2; return 1 ;;
         esac
         ;;
       ' ')
-        if [ "${selected[cursor]}" = "1" ]; then selected[cursor]=0; else selected[cursor]=1; fi
+        # SPACE toggles when on an agent row (kept as an alt to ENTER)
+        if [ "$cursor" -lt "$n" ]; then
+          if [ "${selected[cursor]}" = "1" ]; then selected[cursor]=0; else selected[cursor]=1; fi
+        fi
         ;;
       'a'|'A')
-        # Toggle all: if any unselected → select all; else deselect all
+        # Toggle all agents: if any unselected → select all; else deselect all
         local any_unsel=0
         for ((i=0; i<n; i++)); do
           [ "${selected[i]}" = "0" ] && any_unsel=1
@@ -174,17 +227,34 @@ checkbox_picker() {
         for ((i=0; i<n; i++)); do selected[i]=$newval; done
         ;;
       $'\n'|$'\r'|'')
-        eval "$cleanup"
-        local result=""
-        for ((i=0; i<n; i++)); do
-          [ "${selected[i]}" = "1" ] && result="$result ${ALL_AGENTS[i]}"
-        done
-        if [ -z "$result" ]; then
-          echo "Nothing selected. Press SPACE to toggle items before ENTER." >&2
+        # ENTER: context-sensitive
+        if [ "$cursor" -lt "$n" ]; then
+          # On an agent row → toggle
+          if [ "${selected[cursor]}" = "1" ]; then selected[cursor]=0; else selected[cursor]=1; fi
+        elif [ "$cursor" = "$submit_pos" ]; then
+          # On Submit → check count and either submit or nudge
+          local sc=0
+          for ((i=0; i<n; i++)); do [ "${selected[i]}" = "1" ] && sc=$((sc + 1)); done
+          if [ "$sc" = "0" ]; then
+            # Don't submit an empty selection; user is on the button so we can't print
+            # a persistent message without breaking the redraw. The button label already
+            # shows "(nothing selected)" — just do nothing and let them navigate.
+            :
+          else
+            eval "$cleanup"
+            local result=""
+            for ((i=0; i<n; i++)); do
+              [ "${selected[i]}" = "1" ] && result="$result ${ALL_AGENTS[i]}"
+            done
+            AGENTS_LIST="${result# }"
+            return 0
+          fi
+        else
+          # On Cancel
+          eval "$cleanup"
+          echo "Cancelled." >&2
           return 1
         fi
-        AGENTS_LIST="${result# }"
-        return 0
         ;;
       'q'|'Q')
         eval "$cleanup"
