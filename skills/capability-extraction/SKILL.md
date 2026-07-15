@@ -1,363 +1,340 @@
 ---
 name: capability-extraction
-description: Scan a repo or set of services for a cross-cutting capability implemented locally and repeatedly (notifications, pdf-generation, file-upload, audit-log, feature-flags, scheduling, or user-supplied). Produces an evidence packet — inventory of call sites, duplication signals, coupling smells, blast radius — and ends with a proposed contract (transport, sync/async, event schema) and a strangler-pattern migration order. The capability name is passed as an argument. Triggered when the user says "extract X into a service", "centralize Y", "argue for a Z service", or "we have too many places doing W".
+description: Audit a single service for capabilities it implements locally that don't belong to its domain — capabilities it should be CONSUMING from a centralized party (notification service, audit service, PDF service, file-upload service, feature-flag service, scheduling service, etc.). Produces a "shopping list" of centralized services this service NEEDS, with consumer-contract expectations and coupling-smell evidence. Out of scope: how the centralized service is built, which vendors it uses. Triggered when the user says "what should this service NOT own", "what centralized services does X need", "audit this service for dependencies it should declare", or "what doesn't belong in this service".
 ---
 
 # capability-extraction
 
+## The core reframe
+
+A payments service is a payments service. It shouldn't be a notification service. It shouldn't be an audit service. It shouldn't be a PDF service. It should **depend on** those.
+
+The goal is NOT to "extract" (that's the provider team's word — they build the centralized service). The goal is to identify **the dependencies this service should declare on centralized parties** so it can focus on its actual domain.
+
+## Explicitly out of scope
+
+This skill produces the **consumer's ask**. It does NOT design the provider:
+- How the centralized notification service is built internally
+- Which SMS / email / push vendor(s) it uses
+- Whether it should be Kafka-based or REST-based (that's the provider's call, informed by all consumers)
+- Team ownership of the new centralized service
+- Cost/vendor negotiations
+
+Those are downstream conversations owned by whoever builds the centralized service later. This skill just tells you: "here is what this specific service needs from that party."
+
 ## When to use
 
-- User says: "extract X into a service", "centralize Y", "we have too many places sending emails/uploading files/logging audits", "argue for a notification service"
-- Monorepo or multi-repo audit — cross-cutting capability suspected
-- Pre-work before writing an ADR to spin up a shared service
+- User says: "what should this service NOT own?", "what centralized services does X need?", "audit this service for centralization opportunities", "what doesn't belong in this service"
+- New service scoping — what dependencies should it declare from day one
+- Post-incident: "the outage was caused by [notification code] failing in [payments] — should we own that here?"
+- Quarterly architecture review of a specific service
 
 ## The argument
 
-`capability` — the cross-cutting concern to extract. Canonical values:
+- **Required**: `service` — the single service (repo path or directory) to audit
+- **Optional**: `capabilities` — restrict the audit to specific capabilities (default: sweep all canonical ones)
+
+Canonical capabilities the skill knows how to detect:
 - `notifications` (email, SMS, push, WhatsApp)
-- `pdf-generation`
+- `pdf-generation` (invoices, statements, tickets)
 - `file-upload` (storage abstraction)
-- `audit-log`
-- `feature-flags`
-- `scheduling` (crons, delayed jobs, recurring tasks)
+- `audit-log` (activity records, compliance trails)
+- `feature-flags` (rollout gates)
+- `scheduling` (crons, delayed jobs)
 
-**Also supports user-defined capabilities** — the flow is the same, only the detection patterns change. Ask the user for their grep patterns if the capability isn't in the canonical set.
-
-## The output is NOT "you should centralize this"
-
-The output IS an **evidence packet** with a proposed contract and migration order. "Centralize it" is the easy conclusion; the value is:
-- Inventory the reader can verify (file:line references, not vibes)
-- A wire contract concrete enough to build against
-- A migration order sequenced by risk × ownership
+User-defined capabilities: ask for grep patterns; do NOT guess.
 
 ## Steps
 
-### 1. Detect
-Use the capability's detection table (below). For each pattern, grep across all services in scope. Record every hit with `service:path:line`.
+### 1. Establish this service's domain (one sentence)
+Read the top of `README.md`, the top-level directory names, and the main service class/module. Write ONE sentence: **"This service's real job is: X."**
 
-### 2. Classify each hit
-For every call site, tag it with:
-- **Provider** (SES / Twilio / SendGrid / SMTP / ...)
-- **Sync context** — is this on the request path? inside a DB transaction? in a background job?
-- **Duplication signal** — template rendering nearby? retry loop wrapping the call? opt-out check?
-- **Coupling smell** — does a failure here break unrelated business logic?
+Example: "This service's real job is to accept payment attempts, route them to PGs, reconcile responses, and settle merchants."
 
-### 3. Aggregate
-Count call sites by service and provider. Count each duplication signal by frequency. Rank coupling smells by severity (blast radius: does a slow send block a payment commit?).
+This sentence anchors every recommendation. If a capability doesn't serve this sentence, it's a candidate to delegate.
 
-### 4. Design the contract
-- **Transport** decision (table below)
-- **Sync vs async** decision (tree below)
-- **Event schema** with mandatory + optional fields
-- **Idempotency** — how the consumer dedupes
-- **Ordering** — do consumers need it? (partition key)
+### 2. Sweep for capability signals within this service ONLY
+For each capability (or the subset the user specified), grep the service using the detection tables below. Every hit is `path:line`.
 
-### 5. Migration order (strangler pattern)
-- Write path: new sends emit to the new topic/endpoint. Consumer service handles delivery.
-- Backfill: convert existing call sites in priority order (highest coupling smell first, or by owner availability).
-- Cleanup: remove local sender + retry logic + template code once all call sites are migrated.
+Do NOT compare across services. This is a single-service audit.
 
-### 6. Produce the evidence packet
-Format below. The packet MUST end with the contract + migration order. Without those, the skill has failed.
+### 3. For each capability with hits, produce the case
+Each capability case has FIVE fields:
+
+| Field | Content |
+|---|---|
+| **What's here now** | file:line inventory + which providers are in use |
+| **Coupling smells** | in-transaction, request-blocking, no-idempotency, no-retry, inconsistent-consent, etc. |
+| **Why it doesn't fit the domain** | one sentence tied back to step 1 |
+| **What this service needs from a centralized party** | consumer-facing API surface — what would replace the local code |
+| **Impact of delegating** | lines removed, coupling unblocked, dependencies dropped |
+
+### 4. Rank
+Order the capabilities by **value of delegating**, roughly = (coupling severity × frequency × domain-mismatch). Highest-value first.
+
+### 5. Produce the shopping list
+Output template below. The list is what the service team hands to architecture / platform / the team that will own the centralized service.
 
 ---
 
-## Detection tables (per canonical capability)
+## Detection tables
+
+Same as before — grep patterns per canonical capability. The tables tell you WHAT to look for; the reframe is that you're auditing ONE service, not comparing across many.
 
 ### notifications
 | Signal | Patterns to grep |
 |---|---|
-| Provider SDKs | `boto3.client\('ses'\|'sns'\)`, `smtplib`, `sendgrid`, `twilio\.rest`, `msg91`, `karix`, `firebase_admin.messaging`, `nodemailer`, `SES\.`, `SNS\.`, `whatsapp_business` |
-| Direct-send call | `send_email`, `send_sms`, `send_notification`, `sendMessage`, `send_push`, `Client\.send`, `.send_transactional`, `mail\.send` |
-| Template rendering near call | `render_to_string`, `Template\(`, `render_template`, `Handlebars`, `Jinja`, HTML strings concatenated near a send call |
-| Retry loop wrapping | `for.*attempt`, `retry\(`, `tenacity`, `backoff`, `sleep\(.*attempt`, `while` around a send call |
-| Opt-out check | `unsubscribed`, `opted_out`, `consent`, `preferences\.` near a send call — flag INCONSISTENT if not present at every site |
-| Coupling smell | send call inside `atomic\|transaction\|@transaction` block; send inside a request handler with no `.delay\(\)\|enqueue\|async` |
+| Provider SDKs | `boto3.client\('ses'\|'sns'\)`, `smtplib`, `sendgrid`, `twilio\.rest`, `msg91`, `karix`, `firebase_admin.messaging`, `nodemailer`, `whatsapp_business` |
+| Direct-send calls | `send_email`, `send_sms`, `send_otp`, `send_notification`, `sendMessage`, `.send_transactional` |
+| Template rendering | `render_to_string`, `Template\(`, `render_template`, HTML strings near a send |
+| Retry wrapping | `for.*attempt`, `retry\(`, `tenacity`, `backoff`, `sleep.*attempt` around a send |
+| Opt-out check | `unsubscribed`, `opted_out`, `consent`, `preferences` near a send |
+| Coupling smell | send inside `atomic\|transaction\|@transaction`, or in a request handler with no `.delay\(\)\|enqueue` |
 
 ### pdf-generation
 | Signal | Patterns to grep |
 |---|---|
-| Libs | `wkhtmltopdf`, `pdfkit`, `weasyprint`, `reportlab`, `puppeteer`, `chromium`, `pdf-lib`, `iText`, `PDFDocument`, `HTMLDoc` |
-| Direct-gen call | `.generate_pdf`, `to_pdf`, `render_pdf`, `PDFKit\.`, `page\.pdf\(`, `pdf\.write` |
-| Template rendering near | HTML string concatenation, `render_to_string.*html`, template file loading near the PDF call |
-| Temp file + upload | `NamedTemporaryFile`, `mktemp`, `/tmp/.*\.pdf`, followed by `s3\.upload_file\|put_object\|storage\.upload` |
-| Coupling smell | PDF generation in request handler (blocking, high-CPU); PDF gen in DB transaction |
+| Libs | `wkhtmltopdf`, `pdfkit`, `weasyprint`, `reportlab`, `puppeteer`, `chromium`, `pdf-lib`, `iText` |
+| Direct calls | `.generate_pdf`, `to_pdf`, `render_pdf`, `page\.pdf\(` |
+| Templates + temp files | HTML template loaded, then `NamedTemporaryFile`, `mktemp`, `/tmp/.*\.pdf`, then upload |
+| Coupling smell | PDF gen in request handler (blocking CPU); PDF gen in DB transaction |
 
 ### file-upload
 | Signal | Patterns to grep |
 |---|---|
-| Storage SDKs | `boto3\.client\('s3'\)`, `s3\.upload`, `google\.cloud\.storage`, `azure\.storage\.blob`, `cloudinary`, `MinioClient`, `AmazonS3Client` |
-| MIME / size validation | `content_type`, `mimetypes`, `python-magic`, ad-hoc extension allowlists |
-| Virus scan hook | `clamav`, `virustotal`, missing at some sites — inconsistency signal |
-| Signed-URL logic | `generate_presigned_url`, `getSignedUrl`, hardcoded expiry values |
-| Coupling smell | upload in request handler (long body reads); no size cap; missing content-type validation |
+| Storage SDKs | `boto3\.client\('s3'\)`, `google\.cloud\.storage`, `azure\.storage\.blob`, `cloudinary`, `MinioClient` |
+| MIME / size validation | `content_type`, `mimetypes`, `python-magic`, extension allowlists |
+| Signed URL logic | `generate_presigned_url`, `getSignedUrl` with hardcoded expiries |
+| Coupling smell | upload in request handler; missing size cap; missing content-type validation |
 
 ### audit-log
 | Signal | Patterns to grep |
 |---|---|
-| Direct writes | `AuditLog\.create`, `db\.insert.*audit`, `AuditEvent\(`, `.log_action`, `record_activity` |
-| Ad-hoc formats | Different field names across services (`user_id` vs `actor_id` vs `who`), missing correlation IDs |
-| Same-transaction | Audit insert inside the same DB transaction as the business write — flags atomicity coupling |
-| Missing fields | grep for audit inserts without `tenant_id`, `request_id`, or `timestamp` |
-| Coupling smell | audit write in a transaction; audit failure would roll back the business write |
+| Direct writes | `AuditLog\.create`, `db\.insert.*audit`, `.log_action`, `record_activity` |
+| Ad-hoc field naming | `user_id` vs `actor_id` vs `who` used inconsistently across the same service |
+| Same-transaction | audit insert inside same DB transaction as business write |
+| Coupling smell | audit write inside a transaction; audit failure would roll back business write |
 
 ### feature-flags
 | Signal | Patterns to grep |
 |---|---|
-| SaaS SDKs | `launchdarkly`, `unleash`, `growthbook`, `statsig`, `split\.io`, `optimizely`, `flagsmith` |
-| Home-grown | `is_enabled\(`, `feature_flag\(`, `Feature\.`, config-file-based flags mixed with SDK-based |
-| Env-var flags | `os\.environ\.get\(.*FLAG` — signals ad-hoc rollout |
-| Hardcoded percentages | `random\(\) < 0\.1`, `user_id % 10 == 0` — signals ad-hoc rollout |
-| Default handling | flag reads without a default arg — inconsistency signal |
-| Coupling smell | multiple flag systems coexisting; flag decision inside a hot loop with no caching |
+| SaaS SDKs | `launchdarkly`, `unleash`, `growthbook`, `statsig`, `split\.io`, `flagsmith` |
+| Home-grown | `is_enabled\(`, `feature_flag\(`, `Feature\.`, config-file-based flags |
+| Env-var flags | `os\.environ\.get\(.*FLAG` |
+| Hardcoded percentages | `random\(\) < 0\.1`, `user_id % 10 == 0` |
+| Coupling smell | flag decision inside a hot loop with no caching; multiple flag systems in one service |
 
 ### scheduling
 | Signal | Patterns to grep |
 |---|---|
-| Libs / systems | `celery.*beat`, `cron`, `sidekiq.*scheduler`, `apscheduler`, `node-cron`, `bull.*repeat`, `Kubernetes CronJob`, `@Scheduled`, `airflow\.DAG` |
-| Config locations | crontabs in code AND in `k8s/*.yaml` AND in an infra repo — visibility fragmented |
-| Ad-hoc timers | `setInterval\(`, `Thread.*sleep.*loop`, `while True.*sleep` — hidden schedules |
-| Duplicate runs | same cron in two services (fan-out that shouldn't be) |
-| Coupling smell | scheduled job that writes to DB with no leader election; multi-replica services running the same schedule N times |
-
-## Contract design
-
-### Transport decision table
-
-| Requirement | Transport | Notes |
-|---|---|---|
-| Fire-and-forget, high volume, decoupled consumers | **Kafka / Redpanda / Kinesis topic** | Consumers can be added later without changes to producers |
-| Fire-and-forget, low volume, no replay needed | **SQS / SNS / Pub/Sub** | Simpler ops than Kafka |
-| Caller needs immediate ack (OTP, sync workflow) | **gRPC or HTTP REST** | Sync; producer waits for consumer's response |
-| Delayed / scheduled delivery | **Queue with delay** (SQS delay, Redis sorted set, Temporal, Sidekiq) | |
-| Ordered per-entity (e.g., all events for one user) | **Kafka partitioned by entity_id** | Partition key is the entity |
-
-### Sync vs async decision tree
-
-```
-Does the caller need to know the outcome of the capability call
-before proceeding?
-├─ No → ASYNC (default). Fire-and-forget via topic/queue.
-├─ Yes, but eventual consistency is fine
-│    (e.g., "was the email queued")
-│    → ASYNC with ack topic OR sync HTTP returning "accepted" (202).
-└─ Yes, strict — the outcome affects the caller's decision
-     (e.g., OTP where user is waiting on the screen; PDF that's
-     inlined in the response)
-     → SYNC. Use gRPC / REST. Set strict timeout + fallback.
-```
-
-**Default is async.** Sync couples caller latency and availability to the capability service. Only choose sync when the caller genuinely can't proceed without the answer.
-
-### Event schema — mandatory fields
-
-Every event MUST include:
-- `event_id` — UUID, unique per event
-- `event_type` — e.g., `notification.requested.v1`
-- `emitted_at` — ISO 8601 UTC
-- `tenant_id` — for multi-tenant systems
-- `idempotency_key` — for consumer dedup (often `{source_service}:{source_entity}:{action}`)
-- `source` — `{service_name, version}` that produced the event
-- `payload` — capability-specific body
-
-Capability-specific `payload` shapes:
-
-**notifications**
-```json
-{
-  "template_id": "order_confirmation_v2",
-  "channel": "email|sms|push|whatsapp",
-  "recipient_ref": { "user_id": "..." },
-  "locale": "en-IN",
-  "variables": { "order_id": "...", "amount": 12500 },
-  "priority": "normal|high|critical"
-}
-```
-
-**pdf-generation**
-```json
-{
-  "template_id": "invoice_v3",
-  "output_ref": { "bucket": "invoices", "key": "..." },
-  "variables": { "invoice_id": "...", "line_items": [...] },
-  "callback_topic": "pdf.generated.v1"
-}
-```
-
-**audit-log**
-```json
-{
-  "actor": { "type": "user|system", "id": "..." },
-  "action": "order.created",
-  "target": { "type": "order", "id": "..." },
-  "request_id": "req_abc",
-  "changes": { "before": {...}, "after": {...} }
-}
-```
-
-**file-upload**
-```json
-{
-  "storage_key": "uploads/2026/07/abc.jpg",
-  "content_type": "image/jpeg",
-  "size_bytes": 123456,
-  "owner_ref": { "user_id": "..." },
-  "checksum": { "sha256": "..." }
-}
-```
-
-**feature-flags** (evaluation request, if sync)
-```json
-{
-  "flag_key": "checkout_v2",
-  "context": { "user_id": "...", "tenant_id": "...", "attrs": {...} }
-}
-```
-
-**scheduling**
-```json
-{
-  "schedule_id": "invoice.monthly",
-  "cron": "0 3 1 * *",
-  "target": { "topic": "invoicing.run.v1", "payload_template": {...} },
-  "owner": "billing-team"
-}
-```
-
-### Idempotency
-
-Consumers dedupe on `idempotency_key` for a rolling window (24h default). Recommend Redis SET with EX.
-
-### Versioning
-
-Event type includes a version suffix (`.v1`). Never mutate a v1 schema; introduce `.v2` alongside and migrate consumers.
+| Libs | `celery.*beat`, `sidekiq.*scheduler`, `apscheduler`, `node-cron`, `bull.*repeat`, `@Scheduled`, `airflow\.DAG` |
+| Cron in code + k8s | crontab strings in source AND in `k8s/*.yaml` for the same service |
+| Ad-hoc timers | `setInterval\(`, `while True.*sleep`, `Thread.*sleep.*loop` |
+| Coupling smell | scheduled job with no leader election on a multi-replica deployment |
 
 ---
 
-## Migration order (strangler pattern)
+## Writing the "consumer's ask" (step 3, field 4)
 
-### Phase 1 — Stand up the new service (2 weeks)
-- Publish the contract (schema registry entry / OpenAPI / proto)
-- Deploy consumer service to prod, connected to topic, no producers yet
-- Add smoke test that a manually-published event is delivered end-to-end
+This is the most important field. Frame from THIS service's perspective — what API surface does this service want to call?
 
-### Phase 2 — Dual-path the highest-risk site (1 week)
-- Pick the call site with the WORST coupling smell (e.g., send-in-transaction blocking a payment commit)
-- New code: publish to topic
-- Old code: still runs (dual send — accept temporary double delivery, or use idempotency to swallow duplicates)
-- Verify consumer delivers correctly under real traffic
-
-### Phase 3 — Cut over the risky site
-- Remove the old direct send from that one site
-- Old code is now strangled; the topic is the source of truth for this site
-
-### Phase 4 — Backfill remaining sites
-- Sequence by owner availability + coupling severity
-- Each backfill = one PR: replace direct call with `publish(topic, event)`
-- Delete the local retry/template/opt-out code that becomes redundant
-
-### Phase 5 — Cleanup
-- Remove the provider SDK from services that no longer use it
-- Remove dead template files
-- Update service READMEs
-
-### Rollout risk table (fill in during recommendation)
-
-| Site | Owner | Coupling severity | Recommended phase |
-|---|---|---|---|
-| payments_backend/tasks.py:142 | @payments | CRITICAL — blocks payment commit | Phase 2 (first) |
-| orders_backend/emails.py:88 | @orders | HIGH — 3 retries block worker | Phase 4 (early) |
-| ... | | | |
-
----
-
-## Output — the evidence packet
+Use the shape below. Do NOT specify transport (Kafka vs REST vs gRPC) — that's the provider's decision informed by all consumers, not this service's ask.
 
 ```markdown
-# Capability extraction — <capability>
+### What this service needs
 
-**Scope**: <repos / services scanned>
-**Scanned at**: <UTC timestamp>
+**As a consumer**, this service needs to be able to:
+
+- `<verb> <capability action>` — <when we call it, what we send, what we expect back>
+
+**Delivery-semantics we need**:
+- Async (fire-and-forget) for: <list of use cases>
+- Sync (with response) for: <list of use cases, e.g., OTP where the caller is blocked>
+
+**Guarantees we need**:
+- Idempotency — we will send the same request more than once (retries, redelivery)
+- Ordering — <yes, per user_id> OR <no, not needed>
+- Delivery SLA — <e.g., "within 30s of publish for transactional email">
+
+**Data we would send** (illustrative — provider may adapt):
+` ` `json
+{
+  "template_id": "payment_success",
+  "recipient_ref": { "user_id": "..." },
+  "variables": { "amount": 12500, "order_id": "..." },
+  "priority": "normal"
+}
+` ` `
+
+**What we do NOT need this party to do**:
+- <e.g., "manage user preferences — that's a separate consent service">
+- <e.g., "render templates in our locale-specific format — we'll pass fully-resolved copy">
+```
+
+The point: this service is stating its needs, not designing the provider.
+
+---
+
+## Output — the shopping list
+
+```markdown
+# Capability audit — <service name>
+
+**Scanned at**: <UTC>
+**Service**: <path>
+**This service's real job**: <one sentence — the domain statement>
 
 ## Summary
-- Capability: <name>
-- Found in: N services, M call sites, P providers
-- Recommendation: extract `<capability>-service` — <one-line why>
+This service currently owns N capabilities that don't fit its domain. Ranked by value of delegating:
 
-## Inventory
-| # | Service | File:Line | Provider | Context | Coupling smell |
-|---|---|---|---|---|---|
-| 1 | payments_backend | payments/tasks.py:142 | SES | in-transaction | CRITICAL — SMTP timeout blocks payment commit |
-| 2 | orders_backend | emails/order.py:88 | SendGrid | request handler | HIGH — 8s worst-case blocks response |
-| ... | | | | | |
+1. <capability> — <coupling severity> · <hit count>
+2. <capability> — ...
+3. ...
 
-## Duplication signals
-- Template rendering — duplicated in 4 services (`orders_backend`, `payments_backend`, `refunds_backend`, `notifications_worker`)
-- Retry logic — 5 different implementations (exponential in 2, fixed sleep in 2, none in 1)
-- Opt-out checks — present in 2 services, MISSING in 4 (regulatory risk)
-- Provider fan-out — 4 providers used inconsistently (SES for transactional, SendGrid for marketing, msg91 for SMS, Twilio for SMS in one service)
+Delegating these to centralized parties would remove ~X lines of code and unblock Y coupling smells.
 
-## Blast radius (top 3)
-1. `payments_backend/tasks.py:142` — SMTP timeout blocks payment commit. Estimated user-visible failures: ~120/day at current volume.
-2. `orders_backend/emails/order.py:88` — 8s send blocks HTTP response, causing p99 spike on `/orders`.
-3. Missing opt-out in `marketing_backend/*` — regulatory exposure (CAN-SPAM / DPDPA equivalent).
+## Shopping list
 
-## Recommendation: extract `notification-service`
+### 1. Needs: centralized `notification-service`
 
-### Contract
-- **Transport**: Kafka topic `notification.requested.v1` (async default)
-- **Sync path** (OTP only): gRPC `NotificationService.SendSync` with 3s timeout + SMS fallback
-- **Event schema**:
-  ` ` `json
-  {
-    "event_id": "uuid",
-    "event_type": "notification.requested.v1",
-    "emitted_at": "2026-07-15T10:00:00Z",
-    "tenant_id": "...",
-    "idempotency_key": "orders_backend:order_12345:confirmation",
-    "source": { "service": "orders_backend", "version": "2.14.1" },
-    "payload": {
-      "template_id": "order_confirmation_v2",
-      "channel": "email",
-      "recipient_ref": { "user_id": "..." },
-      "locale": "en-IN",
-      "variables": { "order_id": "...", "amount": 12500 },
-      "priority": "normal"
-    }
-  }
-  ` ` `
-- **Idempotency**: consumer dedupes on `idempotency_key` for 24h (Redis SET EX)
-- **Ordering**: partitioned by `recipient_ref.user_id` (all messages to one user land in order)
+**What's here now**
+- 12 sites; providers: SES (7), msg91 (3), Twilio (2)
+- Sample: `payments/tasks.py:142`, `webhooks/pg_callback.py:88`, `otp/views.py:45`, ...
 
-### Migration order
-| Phase | Site | Owner | Why this order |
-|---|---|---|---|
-| 2 | payments_backend/tasks.py:142 | @payments | CRITICAL coupling — must remove first |
-| 4a | orders_backend/emails/order.py:88 | @orders | HIGH latency impact |
-| 4b | refunds_backend/notify.py:31 | @payments | Same team as phase 2, batch |
-| 4c | marketing_backend/campaigns.py:* (11 sites) | @growth | Grouped by module owner |
-| 4d | admin_backend/alerts.py:22 | @platform | Low volume, easy |
+**Coupling smells**
+- CRITICAL: `payments/tasks.py:142` — `ses.send_email` runs inside `transaction.atomic()` around the payment write. SMTP timeout → payment commit fails → user charged, no record.
+- HIGH: 5 sites have their own retry loops with different backoff (2 exponential, 2 fixed, 1 none).
+- HIGH: opt-out check present in 4 sites, MISSING in 8 (regulatory: DPDPA / TRAI DND exposure).
+- MEDIUM: 4 different template-rendering approaches within this one service.
 
-### Non-goals for this extraction
-- Not building a template editor UI in v1 (templates stay in git; add UI later)
-- Not migrating marketing bulk-blast in v1 (different SLA; separate service)
-- Not changing provider mix (SES/SendGrid/msg91/Twilio all supported — service picks per channel)
+**Why it doesn't fit the domain**
+Payments' job is to process transactions and settle merchants. Emitting communications is a separate concern; owning it here couples payment atomicity to SMTP/SMS availability.
 
-### Follow-ups (ADRs to write)
-- ADR: choice of Kafka vs SQS for notification topic
-- ADR: template storage (git vs Contentful vs custom)
-- ADR: sync path for OTP — gRPC vs REST
+**What this service needs (consumer's ask)**
+
+As a consumer, `<service>` needs to:
+- `publish_notification(template_id, recipient_ref, variables, priority)` — fire-and-forget, for confirmations, receipts, status updates
+- `send_otp_sync(recipient, template_id, variables) → { delivered, message_id }` — sync with response, for OTP flows where the user is blocked on the screen (timeout ≤3s, we'll fall back to SMS if primary channel fails)
+
+Delivery semantics:
+- Async default for all transactional confirmations
+- Sync only for OTP
+
+Guarantees needed:
+- Idempotency on `idempotency_key` we supply (`{service}:{entity_id}:{action}`) — we WILL retry on unclear failures
+- Ordering per `recipient_ref.user_id` — a user's payment-success email must not arrive before their payment-initiated email
+- SLA: transactional publish → delivered within 30s p95
+
+Data we would send:
+` ` `json
+{
+  "template_id": "payment_success",
+  "recipient_ref": { "user_id": "..." },
+  "channel_preference": ["email", "sms"],
+  "variables": { "amount": 12500, "order_id": "...", "merchant_name": "..." },
+  "priority": "high"
+}
+` ` `
+
+What we do NOT need this party to do:
+- Manage user consent / opt-out (consent should live in a separate identity/consent service; the notification service consults it)
+- Render locale-specific copy — we'll pass a template_id and let the service resolve
+- Handle marketing bulk-blasts — different SLA, different consent model, separate concern
+
+**Impact of delegating**
+- Removes ~600 lines from this service (retry loops, template rendering, provider adapters)
+- Drops direct dependencies: `boto3-ses`, `msg91-python`, `twilio`
+- Unblocks the CRITICAL coupling in `payments/tasks.py:142` — payment atomicity no longer coupled to SMTP
+- Eliminates the DPDPA/DND consent inconsistency (consent lives in the notification service, not scattered here)
+
+---
+
+### 2. Needs: centralized `audit-service`
+
+**What's here now**
+- 28 sites; direct writes to a local `audit_log` table via `AuditLog.create(...)`
+- Field naming inconsistent: `user_id` (18 sites), `actor_id` (7 sites), `who` (3 sites)
+
+**Coupling smells**
+- 14 sites write audit rows INSIDE the same `transaction.atomic()` as the business write — audit failure would roll back the payment
+- Zero sites include a `request_id` for cross-service correlation
+- Compliance auditors currently can't answer "who did X in the last 90 days across all services" without joining across N per-service audit tables
+
+**Why it doesn't fit the domain**
+Payments should record its business writes. Building an org-wide compliance/audit trail is not payments' problem — it's a compliance concern that needs a uniform schema across every service.
+
+**What this service needs (consumer's ask)**
+
+As a consumer, `<service>` needs to:
+- `record_audit_event(actor, action, target, changes, request_id)` — async, fire-and-forget
+
+Delivery semantics:
+- Async only
+- At-least-once is fine (audit events dedupe on `event_id` at the provider)
+
+Guarantees needed:
+- Durable (audit events cannot be lost — needed for compliance)
+- Ordering per `target.id` for reconstruction of change history
+- SLA: not latency-sensitive; ≤5min for delivery is fine
+
+Data we would send:
+` ` `json
+{
+  "actor": { "type": "user", "id": "..." },
+  "action": "payment.captured",
+  "target": { "type": "payment", "id": "..." },
+  "changes": { "before": { "status": "pending" }, "after": { "status": "captured" } },
+  "request_id": "req_abc",
+  "occurred_at": "2026-07-15T10:00:00Z"
+}
+` ` `
+
+What we do NOT need this party to do:
+- Enforce retention policies (compliance team defines those centrally)
+- Provide a UI (that's a separate compliance-portal concern)
+
+**Impact of delegating**
+- Removes the local `audit_log` table (drops schema, migrations, indexes)
+- Removes 14 coupling smells where audit write was in the payment transaction
+- Standardizes fields — compliance can now query one place
+
+---
+
+### 3. Needs: centralized `document-service` (PDF generation)
+... (same shape)
+
+---
+
+## What this service should keep
+
+Capabilities that DO fit the domain and should stay local:
+- Payment routing logic
+- PG-response parsing and reconciliation
+- Merchant settlement calculations
+- Payment-specific retry/idempotency (payments are financial; this is core competence, not cross-cutting)
+
+## What's out of scope for this audit
+- How the centralized `notification-service` / `audit-service` / `document-service` are built (their design is their team's problem, informed by ALL consumers, not just this one)
+- Vendor selection (SES vs SendGrid, wkhtmltopdf vs Puppeteer, etc.)
+- Whether any of these centralized services already exist in some form elsewhere in the org (that's a discovery question for architecture)
+- Team ownership of the new centralized services
+
+## Next step
+Hand this shopping list to architecture / platform. They'll:
+- Check if any of these centralized services already exist
+- If not, sequence their creation
+- Come back to this service team with the actual provider API to migrate to
 ```
 
 ---
 
 ## Rules
 
-- NEVER recommend extraction based only on "we have N call sites" — the recommendation MUST cite coupling smells (blast radius), not just duplication
-- NEVER produce the packet without file:line inventory — reviewers need to verify
-- NEVER hand-wave the contract — the packet MUST include event schema, transport choice, sync/async rationale
-- NEVER prescribe a migration all-at-once — always strangler with phases and per-site owner
-- ALWAYS default the transport to async unless the caller genuinely cannot proceed without the outcome
-- ALWAYS include `idempotency_key` in the event schema — consumers WILL see duplicates
-- ALWAYS version the event type (`.v1`) — evolving schemas without versions breaks consumers silently
-- If the user asks about a capability NOT in the canonical set, ask for their grep patterns before scanning — do not guess
+- NEVER prescribe the transport / vendor / internal design of the centralized service — that's the provider's job
+- NEVER extend the audit across multiple services — this is a SINGLE-service audit
+- ALWAYS state this service's domain in one sentence FIRST — it anchors every recommendation
+- ALWAYS frame needs from the CONSUMER's perspective — API surface this service wants to call
+- ALWAYS separate what this service NEEDS from what it does NOT need the party to do (scope control)
+- ALWAYS include impact of delegating (lines removed, coupling unblocked, deps dropped) — makes the case concrete
+- ALWAYS include "what this service should keep" — the audit is about scope discipline, not about hollowing out the service
+- If the user hasn't told you the service's domain and it's not obvious from README, ASK before writing the audit — a wrong domain statement makes every recommendation wrong
