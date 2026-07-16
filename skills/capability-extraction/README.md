@@ -91,6 +91,47 @@ Human-editable with checkboxes; machine-parseable via HTML comment markers:
 
 Team notes (`<!-- notes-start -->`), consumer contract (`<!-- contract-start -->`), and kept-local section are preserved verbatim. Pass `regen-contract` mode to force re-derivation of contracts.
 
+### Machine-readable state (LLM- and tool-friendly)
+
+The bottom of `TODO.md` includes a **fenced JSON state block** hidden inside `<details>` — the markdown checkboxes are what humans see and edit; the JSON is the deterministic source of truth for automation:
+
+```markdown
+<details>
+<summary>Machine-readable state (regenerated on each run — do not edit)</summary>
+
+<!-- capability-audit-state-start -->
+` ` `json
+{
+  "version": 1,
+  "service": "gq_direct_payments_backend",
+  "audit_run": 3,
+  "capabilities": {
+    "notifications": {
+      "todos": [
+        { "id": "cap-notif-001", "status": "open", "severity": "critical",
+          "file": "payments/tasks.py", "line": 142,
+          "title": "Move ses.send_email out of transaction.atomic",
+          "reason": "SMTP timeout blocks payment commit",
+          "history": [...]
+        }
+      ],
+      "consumer_contract": { "async_apis": [...], "sync_apis": [...] }
+    }
+  },
+  "history": [ ... audit runs ... ]
+}
+` ` `
+<!-- capability-audit-state-end -->
+</details>
+```
+
+**Fixed status enums** — LLMs never need to guess:
+- Item status: `open` / `resolved` / `wontfix` / `retracted` / `regressed`
+- Capability status: `open` / `in-progress` / `delegated` / `not-applicable`
+- Severity: `critical` / `high` / `medium` / `low`
+
+**Precedence on re-run**: JSON wins for prior-run values (severity, file/line, history); markdown wins for the latest human toggle (user just checked `[x]` — that hasn't propagated to JSON yet). This makes cross-tool consumption (dashboards, other skills, CI checks) trivially reliable.
+
 ## Terminal summary (dated, on every run)
 
 ```

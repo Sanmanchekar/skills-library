@@ -446,6 +446,137 @@ Other reconciliation rules:
 - **Audit history** — append a new row per run with: run number, date, total findings, open count, resolved count, one-line Δ vs prior run. Never rewrite prior rows.
 - **Todo ids** — monotonic per capability. If `cap-notif-003` was retracted (call site gone before ever being marked done), the NEXT new notification finding gets `cap-notif-004`, not `cap-notif-003`. Ids are never re-used.
 
+### Machine-readable state block (canonical for LLMs / tools)
+
+To make TODO.md unambiguously LLM- and machine-parseable, **append a fenced JSON state block at the bottom**, hidden inside `<details>` so humans see only the markdown. The JSON is the **canonical source of state on re-run**; the markdown checkboxes are the human-facing representation, regenerated from JSON on each write.
+
+Structure at the bottom of TODO.md:
+
+```markdown
+## Audit history
+| ... table ... |
+
+---
+
+<details>
+<summary>Machine-readable state (regenerated on each run — do not edit)</summary>
+
+<!-- capability-audit-state-start -->
+` ` `json
+{ ... full state, schema below ... }
+` ` `
+<!-- capability-audit-state-end -->
+
+</details>
+```
+
+**Full JSON schema**:
+
+```json
+{
+  "version": 1,
+  "service": "<service-name>",
+  "audit_run": 3,
+  "last_audited_at": "2026-07-15T14:30:00Z",
+  "domain_statement": "process payment transactions, route to PGs, settle merchants",
+  "capabilities": {
+    "notifications": {
+      "status": "open",
+      "recommended_service": "notification-service",
+      "call_sites": 12,
+      "providers": ["SES", "msg91", "Twilio", "SendGrid"],
+      "coupling_counts": { "critical": 1, "high": 5, "medium": 4, "low": 2 },
+      "todos": [
+        {
+          "id": "cap-notif-001",
+          "status": "open",
+          "severity": "critical",
+          "file": "payments/tasks.py",
+          "line": 142,
+          "title": "Move ses.send_email out of transaction.atomic",
+          "reason": "SMTP timeout blocks payment commit",
+          "created_run": 1,
+          "resolved_at": null,
+          "resolved_by": null,
+          "history": [
+            { "run": 1, "status": "open", "date": "2026-07-08", "by": null, "note": "initial finding" }
+          ]
+        },
+        {
+          "id": "cap-notif-003",
+          "status": "resolved",
+          "severity": "high",
+          "file": "refunds/tasks.py",
+          "line": 12,
+          "title": "Retry loop normalized",
+          "reason": "5 different retry implementations across service",
+          "created_run": 1,
+          "resolved_at": "2026-07-10",
+          "resolved_by": "alice",
+          "history": [
+            { "run": 1, "status": "open", "date": "2026-07-08", "by": null, "note": "initial finding" },
+            { "run": 2, "status": "resolved", "date": "2026-07-10", "by": "alice", "note": "normalized to shared retry util" }
+          ]
+        }
+      ],
+      "consumer_contract": {
+        "async_apis": ["publish_notification(template_id, recipient_ref, variables, priority)"],
+        "sync_apis": ["send_otp_sync(recipient, template_id, variables) -> {delivered, message_id}"],
+        "delivery_semantics": {
+          "idempotent_key_field": "idempotency_key",
+          "ordering": "per recipient_ref.user_id",
+          "sla_p95_ms": 30000
+        },
+        "out_of_scope": [
+          "consent management",
+          "locale-specific rendering",
+          "marketing bulk-blasts"
+        ]
+      }
+    }
+  },
+  "kept_local": [
+    "PG routing logic",
+    "PG-response parsing and reconciliation",
+    "merchant settlement calculations",
+    "payment-specific idempotency"
+  ],
+  "history": [
+    { "run": 1, "date": "2026-07-08", "findings": 47, "open": 47, "resolved": 0, "wontfix": 0, "diff": "initial" },
+    { "run": 2, "date": "2026-07-12", "findings": 51, "open": 46, "resolved": 3, "wontfix": 2, "diff": "+4 new (webhooks/), -3 auto-resolved" },
+    { "run": 3, "date": "2026-07-15", "findings": 49, "open": 43, "resolved": 6, "wontfix": 0, "diff": "-2 auto-resolved (revenue_backend migrated)" }
+  ]
+}
+```
+
+**Status vocabulary** (fixed enums — never invent new values):
+- Item `status`: `open` · `resolved` · `wontfix` · `retracted` · `regressed`
+- Capability `status`: `open` · `in-progress` · `delegated` · `not-applicable`
+- Item `severity`: `critical` · `high` · `medium` · `low`
+
+**Reconciliation with JSON as canonical**:
+
+1. On re-run, extract JSON block via `<!-- capability-audit-state-start -->` / `<!-- capability-audit-state-end -->` markers
+2. Also scan markdown checkboxes for state deltas — a user may have checked `[x]` items off directly without regenerating JSON; merge those into the JSON state before running the diff
+3. Run fresh scan, apply the 6-case reconciliation table from the previous section
+4. Update JSON with new state (append to `history[]` per touched todo)
+5. Regenerate the entire markdown from the merged JSON, preserving `<!-- notes-start -->`, `<!-- contract-start -->`, `<!-- kept-local-start -->` blocks verbatim
+6. Write markdown + JSON to disk in one file
+
+**Precedence rules when markdown and JSON disagree**:
+- JSON wins for **prior-run values** (severity, file, line, reason, created_run, history) — those are canonical
+- Markdown wins for the **latest human toggle** — user may have just checked `[x]` a moment ago; the JSON hasn't been regenerated yet
+- If a `#wontfix` appears in markdown but not JSON, honor markdown and update JSON to `status: wontfix` in the next write
+- If the JSON block is malformed or missing entirely, fall back to markdown parsing with a `⚠️ warning: JSON state block missing/corrupt — reconstructing from markdown` line in the terminal summary
+
+**Rules for the JSON block**:
+- ALWAYS regenerate the JSON on every run — it's derived from the merged state
+- NEVER prompt the user to edit JSON directly — the markdown is the human interface
+- ALWAYS parse JSON as canonical for prior state; then reconcile markdown deltas on top
+- ALWAYS keep the JSON block markers exact: `<!-- capability-audit-state-start -->` and `<!-- capability-audit-state-end -->` — tools grep these
+- ALWAYS wrap the JSON in ` ```json ` fence — GitHub renders it, LLMs parse it as JSON
+- ALWAYS hide the JSON block inside `<details>` so humans see the markdown checkbox view by default
+
 ### Per-run snapshot: `shopping-list-YYYY-MM-DD.md`
 
 The full evidence packet from Step 5, exactly as it existed at that run. **Immutable — never modified.** Multiple snapshots accumulate over time. Filename includes the audit date. Filename format:
@@ -559,6 +690,16 @@ The user's workflow this enables:
 - ALWAYS append a new row to the Audit history table (unless `no-history` mode)
 - ALWAYS use the SAME todo IDs / emojis / capability slugs / run number in the terminal, TODO.md, and shopping-list snapshot — no divergence
 - If `.audit/capability/` doesn't exist, create it. Suggest the team commit it — this is the migration source of truth, not scratch state.
+
+### Machine-readable state rules
+
+- ALWAYS append the fenced JSON state block to the bottom of TODO.md, wrapped in `<details>` and bracketed by `<!-- capability-audit-state-start -->` / `<!-- capability-audit-state-end -->`
+- ALWAYS regenerate the JSON on every run — it's derived from the merged state, not human-edited
+- ALWAYS use the fixed status enums: item `open`/`resolved`/`wontfix`/`retracted`/`regressed`; capability `open`/`in-progress`/`delegated`/`not-applicable`; severity `critical`/`high`/`medium`/`low`
+- ALWAYS treat JSON as canonical for prior-run values (severity, file, line, reason, created_run, history) — those are set by the skill, not the user
+- ALWAYS treat markdown as canonical for the latest human toggle — user may have just checked `[x]` and JSON hasn't caught up; markdown wins for the LATEST state delta
+- If the JSON block is malformed or missing, fall back to markdown parsing and add a `⚠️ warning: JSON state block missing/corrupt — reconstructing from markdown` line to the terminal summary
+- NEVER prompt the user to edit JSON — the markdown IS the human interface
 
 ### Terminal-summary rules
 
