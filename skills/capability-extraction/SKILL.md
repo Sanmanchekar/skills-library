@@ -75,6 +75,11 @@ Order the capabilities by **value of delegating**, roughly = (coupling severity 
 ### 5. Produce the shopping list
 Output template below. The list is what the service team hands to architecture / platform / the team that will own the centralized service.
 
+### 6. Persist to the audited repo + summarize to the terminal
+- **Write** `.audit/capability/TODO.md` (mergeable, reconcilable) and `.audit/capability/shopping-list-YYYY-MM-DD.md` (immutable per-run snapshot). See "Persistent artifacts" section below.
+- **Print** a dated terminal summary — severity breakdown, top-N by blast radius, diff vs prior run, files-written pointer, next actions. See "Terminal summary" section below.
+- On re-runs, MERGE with the existing TODO.md — never clobber user check-offs or team notes.
+
 ---
 
 ## Detection tables
@@ -328,6 +333,211 @@ Hand this shopping list to architecture / platform. They'll:
 
 ---
 
+## Persistent artifacts — write to `.audit/capability/`
+
+The shopping list from Step 5 is the diagnosis. To make it actionable and reconcilable across re-runs, write TWO files into the audited repo:
+
+```
+<service-repo>/
+└── .audit/
+    └── capability/
+        ├── TODO.md                              # canonical, mergeable, human-editable
+        └── shopping-list-YYYY-MM-DD.md          # per-run snapshot, immutable
+```
+
+Both files SHOULD be **committed to git** — the migration plan is a first-class repo artifact, not scratch. `.audit/` is a shared namespace for audit outputs (this skill owns `capability/`; future audit skills may write to `.audit/security/`, `.audit/dependency/`, etc.).
+
+### Behavior modes
+
+- **Default** — write both files
+- **`dry-run`** — print the terminal summary + shopping list, do NOT touch the filesystem. For preview before commit.
+- **`regen-contract`** — re-derive the Consumer Contract sections from the fresh scan, overwriting user edits (default: preserve user-edited contracts)
+- **`no-history`** — skip appending to the Audit history table (useful for CI / test runs)
+
+If the user hasn't specified a mode, default to normal write.
+
+### TODO.md schema
+
+Human-editable AND machine-parseable. HTML comment markers anchor reconciliation.
+
+```markdown
+# Capability audit — TODO
+<!-- capability-audit v1 -->
+<!-- service: <service-name> -->
+<!-- audit_run: <N> -->
+<!-- last_audited_at: <UTC ISO 8601> -->
+<!-- domain_statement: <one-sentence service purpose> -->
+
+## Capability: notifications
+<!-- capability_id: notifications -->
+<!-- status: open -->
+<!-- call_sites: <N> · providers: <list> -->
+<!-- coupling: CRITICAL (<n>) · HIGH (<n>) · MEDIUM (<n>) · LOW (<n>) -->
+
+### Migration todos
+- [ ] `cap-notif-001` 🔴 **CRITICAL** — Move `ses.send_email` out of `transaction.atomic` at `payments/tasks.py:142` (SMTP timeout blocks payment commit)
+- [ ] `cap-notif-002` 🟠 HIGH — Standardize opt-out check at `campaigns/emails.py:88` (currently missing — DPDPA risk)
+- [x] `cap-notif-003` 🟠 HIGH — [resolved 2026-07-10 @alice] Retry loop at `refunds/tasks.py:12` normalized
+- [ ] `cap-notif-004` 🟡 MEDIUM — Migrate `orders/notify.py:31` to `publish_notification(...)`
+
+### Consumer contract
+<!-- contract-start -->
+_(preserved verbatim across re-runs unless `regen-contract` mode)_
+
+- `publish_notification(...)` — async, fire-and-forget
+- `send_otp_sync(...)` — sync, 3s timeout, delivery ack
+- Delivery semantics: idempotent on our `idempotency_key`, ordered per `user_id`, 30s p95 SLA
+- What we do NOT need this party to do: consent management, locale rendering, marketing bulk-blasts
+<!-- contract-end -->
+
+### Team notes
+<!-- notes-start -->
+_(preserved across re-runs — add decisions, deferrals, dependencies here)_
+<!-- notes-end -->
+
+---
+
+## Capabilities kept local (out of scope for delegation)
+<!-- kept-local-start -->
+- Payment routing logic
+- PG-response parsing
+- Merchant settlement calculations
+- Payment idempotency (financial — core competence, not cross-cutting)
+<!-- kept-local-end -->
+
+## Audit history
+| Run | Date | Findings | Open | Resolved | Δ vs prior |
+|---|---|---|---|---|---|
+| 1 | 2026-07-08 | 47 | 47 | 0 | initial audit |
+| 2 | 2026-07-12 | 51 | 46 | 3 | +4 new (webhooks/), −3 auto-resolved |
+| 3 | 2026-07-15 | 49 | 43 | 6 | −2 auto-resolved (revenue_backend migrated) |
+```
+
+### Todo item format (stable, parseable, sortable)
+
+```
+- [ ] `cap-<capability>-<NNN>` <emoji> **<SEVERITY>** — <verb + file:line + why>
+```
+
+- **`cap-<capability>-<NNN>`** — stable id, zero-padded 3 digits, survives re-runs. `cap-notif-001` for the first notification finding; `cap-audit-013` for the 13th audit finding. Never re-use a retracted id — always monotonic per capability.
+- **Severity emoji + word** — 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW
+- **Verb-first title** — Move / Migrate / Delete / Standardize / Extract — NEVER "look at" or "consider"
+- **`file:line`** in backticks — reviewer can jump straight to it
+- **Why in parens** — the specific coupling smell or duplication signal
+
+### Reconciliation on re-run (the crux)
+
+Before writing a new TODO.md, PARSE the existing one (if present). Extract every item's id, `[ ]`/`[x]` state, any inline tags (`#wontfix`), and preserved sections. Then apply this table per finding:
+
+| Existing state | Fresh scan finding | Action |
+|---|---|---|
+| absent | new site found | add as `- [ ]` new item with next available `cap-<cap>-NNN` id |
+| `[ ]` open | site still exists | keep verbatim (including user edits to description) |
+| `[ ]` open | site GONE | flip to `[x]` with note `[auto-resolved YYYY-MM-DD — call site no longer present]` |
+| `[x]` done | site GONE | keep as done, no change |
+| `[x]` done | site STILL PRESENT | flag as ⚠️ **regression**: flip back to `[ ]`, prepend `⚠️ regressed — was marked done but call site reappeared` |
+| `[x]` done with `#wontfix` | either | preserve verbatim — user's explicit decision |
+
+Other reconciliation rules:
+
+- **Team notes** — content between `<!-- notes-start -->` and `<!-- notes-end -->` is copied VERBATIM. Never modified.
+- **Consumer contract** — content between `<!-- contract-start -->` and `<!-- contract-end -->` is preserved verbatim unless `regen-contract` mode was requested.
+- **Kept-local block** — content between `<!-- kept-local-start -->` and `<!-- kept-local-end -->` is preserved (users may edit); appended to only if the fresh scan surfaces a new domain-fit capability.
+- **Audit history** — append a new row per run with: run number, date, total findings, open count, resolved count, one-line Δ vs prior run. Never rewrite prior rows.
+- **Todo ids** — monotonic per capability. If `cap-notif-003` was retracted (call site gone before ever being marked done), the NEXT new notification finding gets `cap-notif-004`, not `cap-notif-003`. Ids are never re-used.
+
+### Per-run snapshot: `shopping-list-YYYY-MM-DD.md`
+
+The full evidence packet from Step 5, exactly as it existed at that run. **Immutable — never modified.** Multiple snapshots accumulate over time. Filename includes the audit date. Filename format:
+
+```
+shopping-list-2026-07-15.md
+shopping-list-2026-07-22.md
+shopping-list-2026-08-01.md
+```
+
+If two audits happen on the same date, suffix with `-run<N>`: `shopping-list-2026-07-15-run2.md`.
+
+Rationale: `git diff` on `TODO.md` shows what changed since the last commit, but the shopping-list snapshots let a reader see the FULL evidence as it stood at any past run, without needing to `git checkout` a prior commit.
+
+---
+
+## Terminal summary
+
+In addition to writing files, PRINT a dated, structured summary to the terminal so the human sees the diagnosis + trend + next actions at a glance. The terminal is the fast dashboard; the files are the actionable ledger.
+
+### Format
+
+```
+╭─ Capability audit — <service-name> ─────────────────────────────────╮
+│  Run #<N> · <UTC timestamp> · <actor>                               │
+│  Domain: <one-sentence domain statement>                            │
+╰──────────────────────────────────────────────────────────────────────╯
+
+Summary
+  <N> capabilities recommended for delegation
+  <N> total findings · <N> open · <N> resolved · <N> wontfix
+  Δ vs Run #<N-1>: <one-line diff>
+
+By capability
+  🔴 <n>  🟠 <n>  🟡 <n>  🟢 <n>   <capability>   <N> sites → <N> open   → <recommended-service>
+  ...
+
+Top 5 by blast radius
+  <emoji> <cap-id>   <file:line>   <one-line coupling smell>
+  ...
+
+Recent runs (last 3)
+  #<N>    today       <findings>  <open>  <resolved>  (<diff summary>)
+  #<N-1>  <days> ago  <findings>  <open>  <resolved>  (<diff summary>)
+  #<N-2>  <days> ago  <findings>  <open>  <resolved>  (<diff summary>)
+
+Regressions (was done, back to open)
+  ⚠️ <cap-id>  <file:line>  <one-line why>
+  ...
+  (omit this whole block if no regressions this run)
+
+Files written
+  .audit/capability/TODO.md                     (updated: +<N> new, −<N> auto-resolved, <N> regression)
+  .audit/capability/shopping-list-<date>.md     (new snapshot)
+  (In dry-run mode: "Would write" instead of "Files written")
+
+Next
+  1. Review .audit/capability/TODO.md
+  2. Prioritize <top CRITICAL id> (<severity>) this sprint
+  3. Hand the <capability>-service consumer contract to <owner> for scoping
+```
+
+### Width-adaptive rendering
+
+- If terminal is < 100 cols: drop the box-drawing header, use `===` separators instead
+- If terminal is < 80 cols: drop the emoji-count row in "By capability", keep only the count line
+- If output is being piped (`| grep`, `| less`, non-TTY): drop all ANSI colors, use plain text; box-drawing chars are safe (they're just Unicode)
+
+### Marriage between terminal + TODO.md + snapshots
+
+The **todo id** (`cap-notif-001`) is the join key. Every axis is kept consistent across all three surfaces:
+
+| Property | Terminal | TODO.md | shopping-list-*.md |
+|---|---|---|---|
+| Run number | `Run #3` header | `<!-- audit_run: 3 -->` marker | Referenced in the snapshot body |
+| Timestamp | UTC in header | `<!-- last_audited_at: ... -->` | Filename date |
+| Todo IDs | Shown in Top-N + Regressions | Each item labeled `cap-notif-001` | Referenced in the recommendation body |
+| Severity emojis | 🔴🟠🟡🟢 | Same on every item | Same in coupling breakdown |
+| Capability slug | `notifications` | Heading `## Capability: notifications` | Same slug |
+| Domain statement | Header | `<!-- domain_statement: ... -->` | First paragraph |
+
+The user's workflow this enables:
+
+1. Run skill → terminal shows severity + top 5 + trend
+2. Copy an ID like `cap-notif-001` → open `.audit/capability/TODO.md`, search the ID → see full context + suggested action
+3. Migrate the call site → check `[x]` in the TODO
+4. Commit the code fix + the TODO edit in the SAME PR → reviewer sees both
+5. Re-run next sprint → terminal shows `−1 auto-resolved`, prior work preserved
+6. Need the exact evidence packet from 3 weeks ago? → open `.audit/capability/shopping-list-2026-06-25.md`
+
+---
+
 ## Rules
 
 - NEVER prescribe the transport / vendor / internal design of the centralized service — that's the provider's job
@@ -338,3 +548,23 @@ Hand this shopping list to architecture / platform. They'll:
 - ALWAYS include impact of delegating (lines removed, coupling unblocked, deps dropped) — makes the case concrete
 - ALWAYS include "what this service should keep" — the audit is about scope discipline, not about hollowing out the service
 - If the user hasn't told you the service's domain and it's not obvious from README, ASK before writing the audit — a wrong domain statement makes every recommendation wrong
+
+### Persistence rules
+
+- ALWAYS write `.audit/capability/TODO.md` and `.audit/capability/shopping-list-<date>.md` unless the user requested `dry-run`
+- ALWAYS reconcile with existing TODO.md — never clobber user check-offs, tags (`#wontfix`), or team notes
+- NEVER modify content between `<!-- notes-start -->` and `<!-- notes-end -->`
+- NEVER modify content between `<!-- contract-start -->` and `<!-- contract-end -->` unless `regen-contract` mode was requested
+- NEVER re-use a retracted todo id — monotonic per capability
+- ALWAYS append a new row to the Audit history table (unless `no-history` mode)
+- ALWAYS use the SAME todo IDs / emojis / capability slugs / run number in the terminal, TODO.md, and shopping-list snapshot — no divergence
+- If `.audit/capability/` doesn't exist, create it. Suggest the team commit it — this is the migration source of truth, not scratch state.
+
+### Terminal-summary rules
+
+- ALWAYS start the terminal output with a UTC-timestamped header including run number, actor, and the domain statement
+- ALWAYS show the diff vs prior run when a prior run exists (`Δ vs Run #N`)
+- ALWAYS surface regressions (⚠️) as their own block when present — they matter more than raw open counts
+- ALWAYS end with the "Files written" block so the user knows where the details live
+- ALWAYS end with a "Next" block naming the highest-severity open item by id
+- If output is being piped or the terminal is narrow, use the width-adaptive fallbacks — never print box-drawing that will visually break on 60-col terminals

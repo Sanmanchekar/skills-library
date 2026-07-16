@@ -45,7 +45,7 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
 | [refactor](skills/refactor) | dev | Safe behavior-preserving restructure — tests before touching code, one mechanical step per commit |
 | [onboarding](skills/onboarding) | dev | Repo walkthrough for a new joiner from the codebase — stack, run in 5 min, 5 files to read, landmines |
 | [docs-writer](skills/docs-writer) | dev | README + API reference + module docs generated from source, examples cribbed from tests |
-| [capability-extraction](skills/capability-extraction) | dev | Audit one service for cross-cutting capabilities it should delegate to centralized parties — produces a shopping list of dependencies with the consumer's ask |
+| [capability-extraction](skills/capability-extraction) | dev | Audit one service for cross-cutting capabilities it should delegate to centralized parties — writes a mergeable `.audit/capability/TODO.md` + dated shopping-list snapshots + dated terminal summary; reconciles across re-runs |
 | [api-design-go-gin](skills/api-design-go-gin) | backend | REST API design review for Go + Gin: idempotency, pagination, error envelopes, middleware ordering |
 | [api-design-node-express](skills/api-design-node-express) | backend | REST API design review for Node.js + Express: validation, async error handling, rate limiting |
 | [api-design-python-fastapi](skills/api-design-python-fastapi) | backend | REST API design review for Python + FastAPI: Pydantic contracts, dependency injection, async patterns |
