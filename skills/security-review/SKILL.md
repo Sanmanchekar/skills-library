@@ -1,6 +1,11 @@
 ---
 name: security-review
 description: Security-focused review of a diff or file. OWASP Top 10 pass — injection (SQL/NoSQL/OS/LDAP), broken authz, secrets in code, insecure deserialization, SSRF, XSS, CSRF, cryptographic misuse, dependency CVEs, and unvalidated redirects. Emits severity-tagged findings with exploit sketch and concrete fix. Triggered when the user asks for a security review, "check this for vulnerabilities", or shares auth/crypto/input-handling code.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # security-review

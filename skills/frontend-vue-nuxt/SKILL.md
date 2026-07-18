@@ -1,6 +1,11 @@
 ---
 name: frontend-vue-nuxt
 description: Design or review a Nuxt 3 (Vue 3) frontend. Enforces `<script setup>` + Composition API, composables in `composables/`, useFetch vs $fetch choice, server routes (`server/api/`), hydration correctness, SEO via useSeoMeta, and Core Web Vitals. Triggered when the user asks to design/review a Nuxt page, component, composable, or server route.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # frontend-vue-nuxt

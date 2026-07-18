@@ -1,6 +1,11 @@
 ---
 name: api-design-python-fastapi
 description: Design or review a REST API written in Python with FastAPI. Enforces Pydantic v2 request/response models, dependency injection for auth and DB sessions, async patterns, structured error envelope via exception handlers, middleware ordering, idempotency, and SQLAlchemy async session rules. Triggered when the user asks to design/review a FastAPI endpoint, router, or dependency.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # api-design-python-fastapi

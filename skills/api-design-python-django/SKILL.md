@@ -1,6 +1,11 @@
 ---
 name: api-design-python-django
 description: Design or review a REST API written in Python with Django REST Framework (DRF). Enforces serializer separation (read vs write), ViewSet vs APIView choice, permission classes, throttling, N+1 prevention via select_related/prefetch_related, atomic transactions, and drf-spectacular schema. Triggered when the user asks to design/review a DRF endpoint, serializer, viewset, or router.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # api-design-python-django

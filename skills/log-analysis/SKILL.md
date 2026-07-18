@@ -1,6 +1,11 @@
 ---
 name: log-analysis
 description: Parse and correlate raw logs into an incident timeline. Extracts request IDs, spans, errors, and latency; joins across services; produces a UTC-ordered timeline with severity, and surfaces the smallest set of log lines that explain the incident. Stack-agnostic — works on JSON logs, plaintext logs, or LogQL / SQL query results. Triggered when the user pastes logs, asks to "analyze these logs", or "correlate logs for incident X". Pairs with the rca skill.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # log-analysis

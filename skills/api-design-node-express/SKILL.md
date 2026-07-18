@@ -1,6 +1,11 @@
 ---
 name: api-design-node-express
 description: Design or review a REST API written in Node.js with Express. Enforces async error handling (express-async-errors or explicit try/catch), zod/joi validation, structured error envelope, middleware ordering (helmet → cors → body → logger → rate-limit → auth), no unhandled promise rejections, and Prisma/Knex query patterns. Triggered when the user asks to design/review an Express route, handler, or router.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # api-design-node-express

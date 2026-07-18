@@ -1,6 +1,11 @@
 ---
 name: frontend-react-nextjs
 description: Design or review a Next.js (App Router) frontend. Enforces Server Component defaults, correct `use client` boundary placement, streaming with Suspense, caching semantics (fetch cache, revalidateTag, revalidatePath), Server Actions patterns, and Core Web Vitals (LCP image priority, font swap, no CLS). Triggered when the user asks to design/review a Next.js page, route, component, server action, or layout.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # frontend-react-nextjs

@@ -75,6 +75,22 @@ fetch() {
   fi
 }
 
+# Return newline-separated basenames of .md files under the skill's references/ folder.
+# Local checkout: lists skills/<name>/references/*.md filenames directly.
+# Remote: uses the GitHub Contents API (no jq — parses JSON with grep/sed).
+# Empty output = skill has no references/ folder (or the API call failed).
+list_references() {
+  if [ -n "$LOCAL_SKILL_DIR" ]; then
+    [ -d "$LOCAL_SKILL_DIR/references" ] || return 0
+    ls "$LOCAL_SKILL_DIR/references" 2>/dev/null | grep '\.md$' || true
+  else
+    local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/skills/${SKILL_NAME}/references?ref=${REPO_BRANCH}"
+    curl -fsSL "$api_url" 2>/dev/null \
+      | grep -oE '"name":[[:space:]]*"[^"]+\.md"' \
+      | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/' || true
+  fi
+}
+
 # ---- interactive checkbox picker ----
 # Pure-bash TUI: arrow keys, SPACE to toggle, A to toggle all,
 # ENTER to submit, ESC/Q to cancel. Zero external dependencies.
@@ -292,7 +308,17 @@ install_for() {
     claude-code)
       if [ "$SCOPE" = "project" ]; then dest_dir=".claude/skills/$SKILL_NAME"; else dest_dir="$HOME/.claude/skills/$SKILL_NAME"; fi
       fetch "SKILL.md" "$dest_dir/SKILL.md" || { echo "FAIL: could not fetch SKILL.md" >&2; return 1; }
-      fetch "references/index.md" "$dest_dir/references/index.md" 2>/dev/null || true
+      # Fetch every references/*.md the skill declares (loaded on demand by the agent).
+      local ref_count=0
+      while IFS= read -r ref; do
+        [ -z "$ref" ] && continue
+        if fetch "references/$ref" "$dest_dir/references/$ref" 2>/dev/null; then
+          ref_count=$((ref_count + 1))
+        fi
+      done < <(list_references)
+      if [ "$ref_count" -gt 0 ]; then
+        echo "  ↳ installed $ref_count reference file(s) → $dest_dir/references/"
+      fi
       ;;
     codex-cli)
       if [ "$SCOPE" = "project" ]; then dest_dir=".codex/prompts"; else dest_dir="$HOME/.codex/prompts"; fi

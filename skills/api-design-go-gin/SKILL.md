@@ -1,6 +1,11 @@
 ---
 name: api-design-go-gin
 description: Design or review a REST API written in Go with the Gin framework. Enforces idempotency keys, request validation via go-playground/validator, structured error envelope, middleware ordering (recover → logger → cors → auth → ratelimit), context propagation, and gorm/sqlx pattern rules. Triggered when the user asks to design/review a Go+Gin endpoint, handler, or router.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # api-design-go-gin

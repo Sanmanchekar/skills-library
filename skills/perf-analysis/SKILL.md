@@ -1,6 +1,11 @@
 ---
 name: perf-analysis
 description: Analyze performance of a service, endpoint, or code path. Stack-agnostic loop — measure first (never guess), find the hot path via profiling, categorize the bottleneck (CPU / IO / DB / allocation / lock contention), then apply the smallest fix. Detects N+1 queries, missing indexes, chatty RPCs, sync-in-async, unbounded allocations, and cache misses. Triggered when the user says "this is slow", "make X faster", "profile this", or shares a slow endpoint / query / test.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # perf-analysis

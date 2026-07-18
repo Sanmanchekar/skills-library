@@ -1,6 +1,11 @@
 ---
 name: code-review
 description: Review a pull request or a set of code changes. Produce severity-tagged findings (CRITICAL / HIGH / MEDIUM / LOW) with a problem statement, impact, and a concrete suggested fix as a ready-to-apply code block. Triggered when the user asks to "review this PR", "review my changes", "code review", or passes a diff / PR URL.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # code-review

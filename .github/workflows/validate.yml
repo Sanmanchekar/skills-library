@@ -71,6 +71,46 @@ jobs:
           done
           exit $fail
 
+      - name: Check SKILL.md body sections (When to use / Steps-equivalent / Rules)
+        run: |
+          set -euo pipefail
+          fail=0
+          # A skill's "how to execute" section may go by different names depending on
+          # its shape. Accept any of these — but nothing outside this set.
+          STEPS_RE='^## (Steps|Phased flow|The loop|Method|Design checklist|Review checklist|Review rubric|Review categories|The decision tree|Structure)( |$)'
+          for f in skills/*/SKILL.md; do
+            name=$(basename "$(dirname "$f")")
+            grep -qE '^## When to use' "$f" \
+              || { echo "::error file=$f::missing '## When to use' section"; fail=1; }
+            grep -qE "$STEPS_RE" "$f" \
+              || { echo "::error file=$f::missing steps-equivalent section (Steps / Phased flow / The loop / Method / Design checklist / Review checklist / Review rubric / Review categories / The decision tree / Structure)"; fail=1; }
+            grep -qE '^## Rules|^### Rules' "$f" \
+              || { echo "::error file=$f::missing '## Rules' section"; fail=1; }
+          done
+          exit $fail
+
+      - name: Check README.md has Install and What-it-does
+        run: |
+          set -euo pipefail
+          fail=0
+          for f in skills/*/README.md; do
+            grep -qE '^## Install' "$f" \
+              || { echo "::error file=$f::missing '## Install' section"; fail=1; }
+            grep -qE '^## What it does' "$f" \
+              || { echo "::error file=$f::missing '## What it does' section"; fail=1; }
+          done
+          exit $fail
+
+      - name: Warn if SKILL.md is very large (> 400 lines)
+        run: |
+          # Advisory only — mega-skills should live in references/
+          for f in skills/*/SKILL.md; do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 400 ]; then
+              echo "::warning file=$f::SKILL.md is $lines lines (median ~90). Consider moving detail into references/*.md and keeping SKILL.md as the decision spine."
+            fi
+          done
+
       - name: Lint install.sh
         run: |
           if command -v shellcheck >/dev/null; then

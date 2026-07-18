@@ -1,6 +1,11 @@
 ---
 name: iac-review
 description: Review Infrastructure-as-Code — Terraform, AWS CDK, Pulumi, Kubernetes manifests, Helm charts, ECS task definitions. Checks security (public exposure, IAM least privilege, encryption), drift risk (hardcoded ARNs, mutable resources), reliability (health checks, autoscaling, PDBs), and cost (right-sizing, unused resources). Triggered when the user asks to review a `.tf`, `.yaml`, `.json` infra file, or "review this infra change".
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
 ---
 
 # iac-review
