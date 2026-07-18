@@ -77,7 +77,7 @@ jobs:
           fail=0
           # A skill's "how to execute" section may go by different names depending on
           # its shape. Accept any of these — but nothing outside this set.
-          STEPS_RE='^## (Steps|Phased flow|The loop|Method|Design checklist|Review checklist|Review rubric|Review categories|The decision tree|Structure)( |$)'
+          STEPS_RE='^## (Steps|Phased flow|The loop|Method|Design checklist|Review checklist|Review rubric|Review categories|The decision tree|Structure|Checklist|Coverage|The [0-9]+ checks|The [0-9]+-layer defense|Review checklist by regime)( |$)'
           for f in skills/*/SKILL.md; do
             name=$(basename "$(dirname "$f")")
             grep -qE '^## When to use' "$f" \
