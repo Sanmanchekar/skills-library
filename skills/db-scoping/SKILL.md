@@ -18,7 +18,7 @@ If someone says "audit this service" without specifying, ASK — do they mean da
 
 ## The core reframe
 
-A payments service should own payment tables. It should NOT be issuing `SELECT ... FROM students JOIN institutes` or `UPDATE provider_config SET ...`. Those tables belong to other domains. Reaching into them directly is the database-level version of implementing a capability you shouldn't own — except worse, because the coupling is invisible until the owning team alters a column and your service breaks at runtime with no compile-time signal.
+A payments service should own payment tables. It should NOT be issuing `SELECT ... FROM users JOIN customers` or `UPDATE provider_config SET ...`. Those tables belong to other domains. Reaching into them directly is the database-level version of implementing a capability you shouldn't own — except worse, because the coupling is invisible until the owning team alters a column and your service breaks at runtime with no compile-time signal.
 
 The goal is NOT to "carve up the database" (that's a platform/architecture decision informed by every service). The goal is to identify **the data dependencies this service should declare on the domains that own that data** — so it stops treating another team's tables as its own local storage and instead consumes them through an owned interface (API, read-model, or event stream).
 
@@ -44,7 +44,7 @@ This skill produces the **consumer's data ask**. It does NOT design the provider
 ## The argument
 
 - **Required**: `service` — the single service (repo path or directory) to audit
-- **Optional**: `domain_map` — a mapping of table-name patterns → owning domain (e.g., `student* → identity`, `lender* → lending`). If not supplied, the skill infers ownership from migration evidence + naming and marks every inference `inferred`.
+- **Optional**: `domain_map` — a mapping of table-name patterns → owning domain (e.g., `user_* → identity`, `provider_* → lending`). If not supplied, the skill infers ownership from migration evidence + naming and marks every inference `inferred`.
 - **Optional**: `tables` — restrict the audit to specific tables (default: every table the service touches)
 - **Optional**: `mode` — `dry-run` / `regen-contract` / `no-history` (see `references/reconciliation.md`)
 

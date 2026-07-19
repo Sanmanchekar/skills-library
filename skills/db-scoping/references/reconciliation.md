@@ -28,7 +28,7 @@ Before writing a new TODO.md, PARSE the existing one (JSON canonical for prior s
 - **Consumer ask** — content between `<!-- contract-start -->` and `<!-- contract-end -->` — preserved verbatim unless `regen-contract` mode was requested.
 - **Owned** — content between `<!-- owned-start -->` and `<!-- owned-end -->` — preserved; append-only.
 - **Ambient** — content between `<!-- ambient-start -->` and `<!-- ambient-end -->` — regenerated from fresh scan (accurate counts matter).
-- **Confirm ownership** — content between `<!-- confirm-start -->` and `<!-- confirm-end -->` — preserved verbatim. If a user edited an inferred `institutes → identity` line to remove `(inferred)` or add `#confirmed`, honor it as evidenced on future runs; do not revert to `inferred`.
+- **Confirm ownership** — content between `<!-- confirm-start -->` and `<!-- confirm-end -->` — preserved verbatim. If a user edited an inferred `customers → identity` line to remove `(inferred)` or add `#confirmed`, honor it as evidenced on future runs; do not revert to `inferred`.
 - **Inventory** — content between `<!-- inventory-start -->` and `<!-- inventory-end -->` — regenerated from fresh scan.
 - **Audit history** — append a new row per run. Never rewrite prior rows.
 

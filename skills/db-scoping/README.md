@@ -70,15 +70,15 @@ Human-editable checkboxes; machine-parseable via HTML-comment markers; keyed by 
 | Table | Access | Classification | Owner (inferred) | Evidence |
 |---|---|---|---|---|
 | payment_orders | RW | owned | this-service | migrations/0003:12 |
-| institutes | R | foreign-read | identity | order_helper.py:88 |
+| customers | R | foreign-read | identity | order_helper.py:88 |
 | user_profile | RW | foreign-write | identity | webhook_helper.py:210 |
 <!-- inventory-end -->
 
 ## Domain: identity
 ### Migration todos
 - [ ] `dbdep-identity-001` 🔴 **CRITICAL** — Stop writing `user_profile.last_paid_at` at `webhook_helper.py:210`; emit `payment.captured` and let identity write (two-writer + cross-domain-txn)
-- [ ] `dbdep-identity-002` 🟠 HIGH — Replace `payment_orders JOIN institutes` with `get_institute(id)` at `order_helper.py:88` (cross-context join)
-- [x] `dbdep-identity-003` 🟠 HIGH — [resolved 2026-07-20 @alice] Removed direct `institutes` read in reports
+- [ ] `dbdep-identity-002` 🟠 HIGH — Replace `payment_orders JOIN customers` with `get_institute(id)` at `order_helper.py:88` (cross-context join)
+- [x] `dbdep-identity-003` 🟠 HIGH — [resolved 2026-07-20 @alice] Removed direct `customers` read in reports
 
 ### Consumer ask
 <!-- contract-start -->
@@ -125,12 +125,12 @@ Inventory
   Δ vs Run #0: initial audit
 
 By owning domain
-  🔴 2  🟠 1        identity   institutes(R), user_profile(RW)   3 open
+  🔴 2  🟠 1        identity   customers(R), user_profile(RW)   3 open
   🟡 1             lending    provider_config(R)                     1 open
 
 Top 5 by dependency risk
   🔴 dbdep-identity-001   user_profile   webhook_helper.py:210   foreign-write + cross-domain-txn
-  🟠 dbdep-identity-002   institutes        order_helper.py:88      cross-context-join
+  🟠 dbdep-identity-002   customers        order_helper.py:88      cross-context-join
   ...
 
 Files written
@@ -147,7 +147,7 @@ Next
 
 ## Why this framing
 
-Owning a table means you define its migrations, you're the sole writer, and schema changes are your call. Everything a service reaches into by direct SQL is *borrowed* — and borrowed-by-direct-query is invisible coupling that breaks at runtime when the owning team renames a column, with no compile-time signal. A `SELECT ... FROM students JOIN institutes` in a payments service, or an `UPDATE provider_config`, is the database-level version of implementing a capability you shouldn't own — except worse, because it fails silently.
+Owning a table means you define its migrations, you're the sole writer, and schema changes are your call. Everything a service reaches into by direct SQL is *borrowed* — and borrowed-by-direct-query is invisible coupling that breaks at runtime when the owning team renames a column, with no compile-time signal. A `SELECT ... FROM users JOIN customers` in a payments service, or an `UPDATE provider_config`, is the database-level version of implementing a capability you shouldn't own — except worse, because it fails silently.
 
 The skill produces the **consumer's data ask** — "here's the read-model / event / command we need from the domain that owns this table." How that domain exposes it, and whether the physical DB ever gets split, is a downstream architecture conversation.
 
@@ -172,10 +172,10 @@ Owns: payment orders, PG transactions, settlements, webhooks.
 Table inventory: 24 touched — 15 owned, 6 foreign-read, 2 foreign-write, 1 shared-ref
 Ambient: imports all_models.py (521 tables), queries 24 → 497 unused
 
-1. Needs: read access to identity-service (stop touching institutes, user_profile)
+1. Needs: read access to identity-service (stop touching customers, user_profile)
    - CRITICAL: webhook_helper.py:210 UPDATEs user_profile inside the same
      atomic() as the payment write — two writers + shared transactional fate
-   - HIGH: payment_orders JOIN institutes couples both schemas
+   - HIGH: payment_orders JOIN customers couples both schemas
    - Consumer's ask: get_institute(id) -> {name, settlement_account, status}
                     + record_payment(student_id, order_id, paid_at) (owner writes)
    - Impact: closes 2 two-writer hazards, removes 6 cross-context joins
@@ -184,13 +184,13 @@ Ambient: imports all_models.py (521 tables), queries 24 → 497 unused
    ...
 
 Owned tables to keep:
-   - payment_orders, transactions, settlement_*, *_webhook, idempotency tables
+   - payment_orders, transactions, settlements_*, *_webhook, idempotency tables
 
 Ambient surface to shed:
    - Narrow master_models import from 521 tables to owned + declared deps
 
 Confirm ownership (inferred):
-   - institutes → identity · provider_config → lending
+   - customers → identity · provider_config → lending
 ```
 
 ## Compatible with

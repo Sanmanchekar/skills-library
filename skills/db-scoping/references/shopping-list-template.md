@@ -15,7 +15,7 @@ Also used verbatim as the body of the per-run `.audit/db-scoping/data-dependenci
 | Table | Access | Classification | Owner (inferred) | Evidence |
 |---|---|---|---|---|
 | payment_orders | RW | owned (evidenced) | this-service | migrations/0003_…:12 |
-| institutes | R | foreign-read | identity/institute | cashfree/…/order_helper.py:88 |
+| customers | R | foreign-read | identity/institute | pg-integrations/…/order_helper.py:88 |
 | provider_config | R | shared-reference | lending | …:142 |
 | user_profile | RW | foreign-write | identity | …/webhook_helper.py:210 |
 | ledger_entry | — | ambient (unused) | finance | imported via master_models, never queried |

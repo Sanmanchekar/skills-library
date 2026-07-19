@@ -29,19 +29,19 @@ Read this file when Step 7 needs to write `.audit/db-scoping/TODO.md` — either
 | Table | Access | Classification | Owner (inferred) | Evidence |
 |---|---|---|---|---|
 | payment_orders | RW | owned | this-service | migrations/0003:12 |
-| institutes | R | foreign-read | identity | order_helper.py:88 |
+| customers | R | foreign-read | identity | order_helper.py:88 |
 <!-- inventory-end -->
 
 ## Domain: identity
 <!-- domain_id: identity -->
 <!-- status: open -->
-<!-- tables: institutes (R), user_profile (RW) -->
+<!-- tables: customers (R), user_profile (RW) -->
 <!-- coupling: CRITICAL (2) · HIGH (1) · MEDIUM (0) · LOW (0) -->
 
 ### Migration todos
 - [ ] `dbdep-identity-001` 🔴 **CRITICAL** — Stop writing `user_profile.last_paid_at` at `…/webhook_helper.py:210`; emit `payment.captured` and let identity write (two-writer + cross-domain-txn)
-- [ ] `dbdep-identity-002` 🟠 HIGH — Replace `payment_orders JOIN institutes` with `get_institute(id)` at `…/order_helper.py:88` (cross-context join)
-- [x] `dbdep-identity-003` 🟠 HIGH — [resolved 2026-07-20 @alice] Removed direct `institutes` read in reports
+- [ ] `dbdep-identity-002` 🟠 HIGH — Replace `payment_orders JOIN customers` with `get_institute(id)` at `…/order_helper.py:88` (cross-context join)
+- [x] `dbdep-identity-003` 🟠 HIGH — [resolved 2026-07-20 @alice] Removed direct `customers` read in reports
 
 ### Consumer ask
 <!-- contract-start -->
@@ -59,7 +59,7 @@ _(preserved verbatim across re-runs unless `regen-contract`)_
 
 ## Owned tables (out of scope for delegation)
 <!-- owned-start -->
-- payment_orders, transactions, settlement_* — sole writer, created in local migrations
+- payment_orders, transactions, settlements_* — sole writer, created in local migrations
 <!-- owned-end -->
 
 ## Ambient surface to shed
@@ -69,7 +69,7 @@ _(preserved verbatim across re-runs unless `regen-contract`)_
 
 ## Confirm ownership (inferred)
 <!-- confirm-start -->
-- institutes → identity (inferred)
+- customers → identity (inferred)
 - provider_config → lending (inferred)
 <!-- confirm-end -->
 
@@ -110,13 +110,13 @@ Append a fenced JSON block at the bottom of TODO.md, hidden in `<details>`, brac
   "owned_data_statement": "owns payment orders, transactions, settlements, webhooks",
   "inventory": [
     { "table": "payment_orders", "access": "RW", "classification": "owned", "owner": "this-service", "inferred": false, "evidence": "migrations/0003:12" },
-    { "table": "institutes", "access": "R", "classification": "foreign-read", "owner": "identity", "inferred": true, "evidence": "cashfree/…/order_helper.py:88" },
+    { "table": "customers", "access": "R", "classification": "foreign-read", "owner": "identity", "inferred": true, "evidence": "pg-integrations/…/order_helper.py:88" },
     { "table": "user_profile", "access": "RW", "classification": "foreign-write", "owner": "identity", "inferred": true, "evidence": "…/webhook_helper.py:210" }
   ],
   "domains": {
     "identity": {
       "status": "open",
-      "tables": ["institutes", "user_profile"],
+      "tables": ["customers", "user_profile"],
       "coupling_counts": { "critical": 2, "high": 1, "medium": 0, "low": 0 },
       "todos": [
         {
@@ -147,7 +147,7 @@ Append a fenced JSON block at the bottom of TODO.md, hidden in `<details>`, brac
   },
   "owned_tables": ["payment_orders", "transactions", "settlements"],
   "ambient": { "declared": 521, "queried": 24, "unused": 497, "module": "all_models.py" },
-  "confirm_ownership": [ { "table": "institutes", "assumed_owner": "identity" } ],
+  "confirm_ownership": [ { "table": "customers", "assumed_owner": "identity" } ],
   "history": [
     { "run": 1, "date": "2026-07-17", "tables_touched": 24, "owned": 15, "foreign": 6, "ambient": 3, "open_todos": 5, "diff": "initial" }
   ]
