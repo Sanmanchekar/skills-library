@@ -80,7 +80,7 @@ fetch() {
 # plus scripts/** helpers the SKILL.md invokes. README.md is the landing page and
 # is never installed.
 # Local checkout: `find` under skills/<name>/.
-# Remote: one recursive git-trees API call (no jq — parses JSON with grep/sed).
+# Remote: one recursive git-trees API call (no jq — parses the JSON with awk).
 # Empty output = skill ships nothing beyond SKILL.md (or the API call failed).
 list_skill_assets() {
   if [ -n "$LOCAL_SKILL_DIR" ]; then
@@ -88,23 +88,30 @@ list_skill_assets() {
         ! -name SKILL.md ! -name README.md \
         | sed 's|^\./||' | sort ) 2>/dev/null || true
   else
-    # The trees API returns both blobs and trees; match the type field so directory
-    # entries never reach fetch(). Field order in GitHub's response is stable:
-    #   {"path":"...","mode":"100644","type":"blob",...}
+    # One recursive git-trees call. The response is pretty-printed JSON, so pair
+    # each entry's "path" with the "type" that follows it in the same object
+    # (GitHub emits path before type) and keep blobs only — directory entries must
+    # never reach fetch(). `tr , \\n` normalises so the same pass also handles a
+    # compact response.
     local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${REPO_BRANCH}?recursive=1"
     local resp
     resp="$(curl -fsSL "$api_url" 2>/dev/null)" || return 0
     # Never let a truncated tree become a silently partial install.
-    case "$resp" in
-      *'"truncated":true'*)
-        echo "  ! warning: repo tree listing was truncated — some $SKILL_NAME files may be missing" >&2
-        ;;
-    esac
+    if printf '%s' "$resp" | grep -qE '"truncated"[[:space:]]*:[[:space:]]*true'; then
+      echo "  ! warning: repo tree listing was truncated — some $SKILL_NAME files may be missing" >&2
+    fi
     printf '%s' "$resp" \
-      | grep -oE "\"path\":\"skills/${SKILL_NAME}/[^\"]+\",\"mode\":\"[0-9]+\",\"type\":\"blob\"" \
-      | sed -E 's/^"path":"skills\/'"${SKILL_NAME}"'\/(.*)","mode".*$/\1/' \
-      | grep -vE '^(SKILL|README)\.md$' \
-      | sort || true
+      | tr ',' '\n' \
+      | awk -F'"' -v pre="skills/${SKILL_NAME}/" '
+          /"path"[[:space:]]*:/ { p = $4; next }
+          /"type"[[:space:]]*:/ {
+            if ($4 == "blob" && index(p, pre) == 1) {
+              rel = substr(p, length(pre) + 1)
+              if (rel != "SKILL.md" && rel != "README.md") print rel
+            }
+            p = ""
+          }' \
+      | sort
   fi
 }
 
