@@ -75,19 +75,43 @@ fetch() {
   fi
 }
 
-# Return newline-separated basenames of .md files under the skill's references/ folder.
-# Local checkout: lists skills/<name>/references/*.md filenames directly.
-# Remote: uses the GitHub Contents API (no jq — parses JSON with grep/sed).
-# Empty output = skill has no references/ folder (or the API call failed).
-list_references() {
+# Return newline-separated paths (relative to the skill dir) of every supporting
+# file a skill ships alongside SKILL.md — references/**.md at any nesting depth,
+# plus scripts/** helpers the SKILL.md invokes. README.md is the landing page and
+# is never installed.
+# Local checkout: `find` under skills/<name>/.
+# Remote: one recursive git-trees API call (no jq — parses the JSON with awk).
+# Empty output = skill ships nothing beyond SKILL.md (or the API call failed).
+list_skill_assets() {
   if [ -n "$LOCAL_SKILL_DIR" ]; then
-    [ -d "$LOCAL_SKILL_DIR/references" ] || return 0
-    ls "$LOCAL_SKILL_DIR/references" 2>/dev/null | grep '\.md$' || true
+    ( cd "$LOCAL_SKILL_DIR" && find . -type f \
+        ! -name SKILL.md ! -name README.md \
+        | sed 's|^\./||' | sort ) 2>/dev/null || true
   else
-    local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/skills/${SKILL_NAME}/references?ref=${REPO_BRANCH}"
-    curl -fsSL "$api_url" 2>/dev/null \
-      | grep -oE '"name":[[:space:]]*"[^"]+\.md"' \
-      | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/' || true
+    # One recursive git-trees call. The response is pretty-printed JSON, so pair
+    # each entry's "path" with the "type" that follows it in the same object
+    # (GitHub emits path before type) and keep blobs only — directory entries must
+    # never reach fetch(). `tr , \\n` normalises so the same pass also handles a
+    # compact response.
+    local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${REPO_BRANCH}?recursive=1"
+    local resp
+    resp="$(curl -fsSL "$api_url" 2>/dev/null)" || return 0
+    # Never let a truncated tree become a silently partial install.
+    if printf '%s' "$resp" | grep -qE '"truncated"[[:space:]]*:[[:space:]]*true'; then
+      echo "  ! warning: repo tree listing was truncated — some $SKILL_NAME files may be missing" >&2
+    fi
+    printf '%s' "$resp" \
+      | tr ',' '\n' \
+      | awk -F'"' -v pre="skills/${SKILL_NAME}/" '
+          /"path"[[:space:]]*:/ { p = $4; next }
+          /"type"[[:space:]]*:/ {
+            if ($4 == "blob" && index(p, pre) == 1) {
+              rel = substr(p, length(pre) + 1)
+              if (rel != "SKILL.md" && rel != "README.md") print rel
+            }
+            p = ""
+          }' \
+      | sort
   fi
 }
 
@@ -308,16 +332,24 @@ install_for() {
     claude-code)
       if [ "$SCOPE" = "project" ]; then dest_dir=".claude/skills/$SKILL_NAME"; else dest_dir="$HOME/.claude/skills/$SKILL_NAME"; fi
       fetch "SKILL.md" "$dest_dir/SKILL.md" || { echo "FAIL: could not fetch SKILL.md" >&2; return 1; }
-      # Fetch every references/*.md the skill declares (loaded on demand by the agent).
-      local ref_count=0
-      while IFS= read -r ref; do
-        [ -z "$ref" ] && continue
-        if fetch "references/$ref" "$dest_dir/references/$ref" 2>/dev/null; then
-          ref_count=$((ref_count + 1))
+      # Fetch every supporting file the skill ships — references/** (loaded on demand
+      # by the agent) and scripts/** (invoked by the SKILL.md). Nesting is preserved,
+      # so references/databases/redis.md lands at the path the SKILL.md cites.
+      local asset_count=0 script_count=0
+      while IFS= read -r rel; do
+        [ -z "$rel" ] && continue
+        if fetch "$rel" "$dest_dir/$rel" 2>/dev/null; then
+          asset_count=$((asset_count + 1))
+          case "$rel" in
+            scripts/*)
+              chmod +x "$dest_dir/$rel" 2>/dev/null || true
+              script_count=$((script_count + 1))
+              ;;
+          esac
         fi
-      done < <(list_references)
-      if [ "$ref_count" -gt 0 ]; then
-        echo "  ↳ installed $ref_count reference file(s) → $dest_dir/references/"
+      done < <(list_skill_assets)
+      if [ "$asset_count" -gt 0 ]; then
+        echo "  ↳ installed $asset_count supporting file(s) ($script_count script(s)) → $dest_dir/"
       fi
       ;;
     codex-cli)

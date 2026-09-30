@@ -40,6 +40,7 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
 | [rca](skills/rca) | dev | Phased incident root-cause orchestration with timeline, contributing factors, action items |
 | [debug](skills/debug) | dev | Systematic hypothesis → instrument → narrow loop. Stack-agnostic. Blocks print-statement flailing |
 | [perf-analysis](skills/perf-analysis) | dev | Measure → profile → categorize → fix → re-measure. Detects N+1, missing indexes, hot loops, contention |
+| [complexity-aware-coding](skills/complexity-aware-coding) | dev | Big O discipline on every change — names the growing `n`, flags hidden O(n²) and ORM N+1, bounds user-controlled sizes, requires a verified complexity note. Bundles a Python AST scanner + per-language/framework/database reference sheets |
 | [db-migration](skills/db-migration) | dev | Safe schema change review — backward-compat, lock analysis, online-safe patterns, rollback plan |
 | [dependency-upgrade](skills/dependency-upgrade) | dev | Version-bump migration planner — categorizes breaking changes, sequences PRs, plans rollout |
 | [refactor](skills/refactor) | dev | Safe behavior-preserving restructure — tests before touching code, one mechanical step per commit |
@@ -81,7 +82,7 @@ curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/ins
 
 | Agent | Install location | Format |
 |---|---|---|
-| Claude Code | `~/.claude/skills/<name>/SKILL.md` | SKILL.md as-is |
+| Claude Code | `~/.claude/skills/<name>/SKILL.md` | SKILL.md as-is, plus `references/**` and `scripts/**` |
 | Codex CLI | `~/.codex/prompts/<name>.md` | SKILL.md body |
 | Cursor | `.cursor/rules/<name>.mdc` | Translated to `.mdc` |
 | Aider | `.aider/conventions/<name>.md` | Referenced from `.aider.conf.yml` |
