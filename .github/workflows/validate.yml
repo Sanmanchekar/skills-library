@@ -7,6 +7,7 @@ on:
       - "agents/**"
       - "hooks/**"
       - "docs/lifecycle.md"
+      - "docs/lifecycle.html"
       - "install.sh"
       - "README.md"
       - ".github/workflows/validate.yml"

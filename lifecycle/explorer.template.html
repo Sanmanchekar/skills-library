@@ -1,0 +1,410 @@
+<title>Skills Lifecycle Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a transit map — one lane per lifecycle phase, skills are stations,
+   hand-offs are lines; return routes arc underneath. Inspector + router on the side. */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #17202b;
+  --muted: #5b6878;
+  --rule: #d3dae2;
+  --focus: #1d5fd1;
+  --plan: #7b4fd6; --build: #1f7a8c; --verify: #c2410c; --ship: #2f7d32;
+  --operate: #b4235a; --learn: #8a6a00; --maintain: #4a5a70; --team: #7a7f87;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141a; --surface: #182029; --ink: #e6ebf1; --muted: #93a0b0; --rule: #2a3542; --focus: #7aa7ff;
+  --plan: #b39bff; --build: #4fc3d4; --verify: #ff8a4c; --ship: #6fcf73;
+  --operate: #ff6f9f; --learn: #e2c045; --maintain: #9fb0c8; --team: #a3a9b2;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #182029; --ink: #e6ebf1; --muted: #93a0b0; --rule: #2a3542; --focus: #7aa7ff;
+  --plan: #b39bff; --build: #4fc3d4; --verify: #ff8a4c; --ship: #6fcf73;
+  --operate: #ff6f9f; --learn: #e2c045; --maintain: #9fb0c8; --team: #a3a9b2;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); margin: 0; }
+.wrap { padding-inline: 16px; padding-block: 24px 48px; max-width: 1600px; margin-inline: auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+h1 { font: 700 clamp(28px, 4vw, 40px)/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 70ch; margin: 0; }
+.lede code, code { font-family: var(--mono); font-size: .86em; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; color: var(--muted); }
+.legend svg { vertical-align: middle; }
+.phases { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 600 13px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1.5px solid var(--c); color: var(--ink);
+  background: transparent; border-radius: 999px; padding: 7px 12px 6px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chip[aria-pressed="false"] { opacity: .45; }
+.chip:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; align-items: start; }
+@media (max-width: 1000px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.map { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow-x: auto; min-width: 0; }
+.map svg { display: block; }
+.lane-title { font: 700 15px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.lane-sub { font: 400 11px var(--body); fill: var(--muted); }
+.station rect { fill: var(--surface); stroke: var(--c); stroke-width: 1.5; transition: opacity .15s; }
+.station text { font: 500 12.5px var(--mono); fill: var(--ink); pointer-events: none; }
+.station .badge { font: 700 11px var(--display); fill: var(--surface); }
+.station .badge-bg { fill: var(--c); }
+.station { cursor: pointer; }
+.station:hover rect, .station.sel rect { fill: var(--c); }
+.station:hover text.label, .station.sel text.label { fill: var(--surface); }
+.station:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+.station.hit rect { stroke-width: 3; }
+.edge { fill: none; stroke: var(--c); stroke-width: 1.6; opacity: .55; transition: opacity .15s; }
+.edge.cond { stroke-dasharray: 5 4; }
+.edge.fan { stroke-dasharray: 1 4; stroke-linecap: round; opacity: .35; }
+.dim .station:not(.on) { opacity: .22; }
+.dim .edge:not(.on) { opacity: .06; }
+.dim .edge.on { opacity: 1; stroke-width: 2.4; }
+.hub rect { fill: var(--bg); stroke: var(--verify); stroke-dasharray: 3 3; }
+.hub text { fill: var(--muted); }
+aside { display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); min-width: 0; }
+@media (max-width: 1000px) { aside { position: static; } }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.panel h2 { font: 700 20px/1.1 var(--display); letter-spacing: .02em; margin: 0; overflow-wrap: anywhere; }
+.eyebrow { font: 600 12px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.panel p { margin: 0; }
+.kv { display: grid; gap: 4px; }
+.kv h3 { font: 600 12px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font: 400 11.5px var(--mono); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; overflow-wrap: anywhere; }
+.links { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.links li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline; }
+.links button { font: 500 12.5px var(--mono); color: var(--ink); background: none; border: 0; border-bottom: 1.5px solid var(--c); padding: 0; cursor: pointer; }
+.cond { font-size: 12.5px; color: var(--muted); }
+.cmd { display: flex; gap: 8px; align-items: center; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.cmd code { overflow-x: auto; white-space: nowrap; flex: 1; min-width: 0; font-size: 11.5px; }
+.btn { font: 600 13px var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+label { font: 600 12px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: grid; gap: 4px; }
+textarea, input, select { font: 400 13px var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 8px; width: 100%; }
+textarea { resize: vertical; min-height: 56px; }
+.results { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.results li { display: grid; grid-template-columns: 2.2em 1fr; gap: 8px; align-items: baseline; font-size: 13px; }
+.score { font: 700 15px var(--display); color: var(--c); text-align: right; font-variant-numeric: tabular-nums; }
+.why { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.loops { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.loop { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.loop[aria-pressed="true"] { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.loop strong { font: 700 17px var(--display); letter-spacing: .03em; }
+.loop .meta { font: 400 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-title { font: 700 18px var(--display); letter-spacing: .08em; text-transform: uppercase; margin: 8px 0 0; }
+footer { color: var(--muted); font-size: 12.5px; }
+footer a { color: inherit; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header>
+    <div class="eyebrow">skills-library · development lifecycle</div>
+    <h1>Which skill runs, and what runs next</h1>
+    <p class="lede">Each lane is a lifecycle phase and each station is a skill. Click a station to trace what feeds it and where it hands off. Type a request or file paths in the router to see which skills it would call.</p>
+    <div class="legend" aria-label="Legend">
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="currentColor" stroke-width="2"/></svg> always runs next</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="5 4"/></svg> conditional — a file match, an artifact, or a question for you</span>
+      <span><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="1 4" stroke-linecap="round"/></svg> reviewer fan-out on a PR</span>
+      <span>arcs below the map are return routes (e.g. an incident back to planning)</span>
+    </div>
+    <div class="phases" id="phases" role="group" aria-label="Show or hide phases"></div>
+  </header>
+
+  <div class="main">
+    <div class="map" id="map" role="region" aria-label="Lifecycle map" tabindex="0"></div>
+    <aside>
+      <section class="panel" id="inspector" aria-live="polite"></section>
+      <section class="panel" aria-labelledby="router-title">
+        <div class="eyebrow" id="router-title">Try the router</div>
+        <label for="q">Request<textarea id="q" rows="2">make this refund endpoint safe to retry</textarea></label>
+        <label for="paths">Changed files<input id="paths" value="src/payments/refund.py migrations/0042_refund_key.py"></label>
+        <label for="event">Event<select id="event"><option value="">none</option></select></label>
+        <ol class="results" id="results"></ol>
+        <p class="cond">Same weights as <code>route.py</code>: request +3, file +2, event +2, always-on event +5. Content matching on diff lines is CLI-only.</p>
+      </section>
+    </aside>
+  </div>
+
+  <h2 class="section-title">Loops</h2>
+  <div class="loops" id="loops"></div>
+
+  <footer>Generated from <code>lifecycle/graph.yaml</code> by <code>lifecycle/build.py</code>. <a href="https://github.com/Sanmanchekar/skills-library">Sanmanchekar/skills-library</a></footer>
+</div>
+
+<script type="application/json" id="registry">/*__REGISTRY__*/</script>
+<script>
+(function () {
+  "use strict";
+  const REG = JSON.parse(document.getElementById("registry").textContent);
+  const REPO = "https://github.com/Sanmanchekar/skills-library";
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const phases = REG.phases.map(p => p.id);
+  const nodes = REG.nodes;
+  const reviewOrder = (REG.conflicts && REG.conflicts.review_order) || [];
+  const hidden = new Set();
+  let selected = null, loopSel = null, routeHits = new Map();
+
+  // ── layout ────────────────────────────────────────────────
+  const COL = 196, NW = 168, NH = 28, GAP = 10, TOP = 72, LEFT = 14;
+  const pos = {};
+  let maxRow = 0;
+  phases.forEach((ph, ci) => {
+    const owns = REG.agents[ph].owns.slice();
+    const offset = ph === "verify" ? 1 : 0;           // row 0 of verify is the fan-out hub
+    owns.forEach((n, ri) => {
+      pos[n] = { x: LEFT + ci * COL, y: TOP + (ri + offset) * (NH + GAP), phase: ph };
+      maxRow = Math.max(maxRow, ri + offset);
+    });
+  });
+  const vi = phases.indexOf("verify");
+  pos["@verify"] = { x: LEFT + vi * COL, y: TOP, phase: "verify" };
+  const lanesBottom = TOP + (maxRow + 1) * (NH + GAP);
+  const backEdges = REG.edges.filter(e => e.to !== "@verify" && phases.indexOf(pos[e.to].phase) < phases.indexOf(pos[e.from].phase));
+  const W = LEFT * 2 + phases.length * COL - (COL - NW);
+  const H = lanesBottom + 30 + backEdges.length * 7 + 20;
+
+  const el = (tag, attrs, parent) => {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  };
+  const cvar = ph => `var(--${ph})`;
+
+  const svg = el("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Skills lifecycle graph" });
+  document.getElementById("map").appendChild(svg);
+
+  // lane headers + guide rails
+  phases.forEach((ph, ci) => {
+    const meta = REG.phases[ci];
+    const x = LEFT + ci * COL;
+    const g = el("g", { class: "lane", "data-phase": ph }, svg);
+    el("rect", { x, y: 14, width: NW, height: 4, rx: 2, fill: cvar(ph) }, g);
+    const t = el("text", { x, y: 38, class: "lane-title", fill: cvar(ph) }, g); t.textContent = meta.title;
+    const loop = REG.agents[ph].loop;
+    const s = el("text", { x, y: 54, class: "lane-sub" }, g);
+    s.textContent = `${REG.agents[ph].owns.length} skills` + (loop ? ` · ${loop} loop` : "");
+  });
+
+  // edges
+  const edgeLayer = el("g", {}, svg);
+  const edgeEls = [];
+  let backIdx = 0;
+  function pathFor(a, b, kind) {
+    const A = pos[a], B = pos[b];
+    if (kind === "back") {
+      const y = lanesBottom + 24 + (backIdx++) * 7;
+      const x1 = A.x + NW / 2, x2 = B.x + NW / 2;
+      return `M${x1},${A.y + NH} C${x1},${y} ${x2},${y} ${x2},${B.y + NH}`;
+    }
+    if (A.phase === B.phase) {
+      const x = A.x + NW, bow = 26 + Math.abs(B.y - A.y) * 0.08;
+      return `M${x},${A.y + NH / 2} C${x + bow},${A.y + NH / 2} ${x + bow},${B.y + NH / 2} ${x},${B.y + NH / 2}`;
+    }
+    const x1 = A.x + NW, y1 = A.y + NH / 2, x2 = B.x, y2 = B.y + NH / 2, dx = Math.max(28, (x2 - x1) / 2);
+    return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+  }
+  REG.edges.forEach(e => {
+    const back = e.to !== "@verify" && phases.indexOf(pos[e.to].phase) < phases.indexOf(pos[e.from].phase);
+    const cond = e.when && e.when !== "always";
+    const p = el("path", { d: pathFor(e.from, e.to, back ? "back" : "fwd"), class: "edge" + (cond ? " cond" : ""), style: `--c:${cvar(pos[e.from].phase)}` }, edgeLayer);
+    edgeEls.push({ el: p, from: e.from, to: e.to });
+  });
+  reviewOrder.forEach(r => {
+    if (!pos[r]) return;
+    const p = el("path", { d: pathFor("@verify", r, "fwd"), class: "edge fan", style: `--c:${cvar("verify")}` }, edgeLayer);
+    edgeEls.push({ el: p, from: "@verify", to: r, fan: true });
+  });
+
+  // stations
+  const stationEls = {};
+  function station(name, label, isHub) {
+    const P = pos[name];
+    const g = el("g", { class: "station" + (isHub ? " hub" : ""), transform: `translate(${P.x},${P.y})`, style: `--c:${cvar(P.phase)}`,
+      tabindex: 0, role: "button", "aria-label": isHub ? "Reviewer fan-out on a PR" : `${name}, ${P.phase} phase` }, svg);
+    el("rect", { width: NW, height: NH, rx: NH / 2 }, g);
+    const t = el("text", { x: 12, y: NH / 2 + 4.5, class: "label" }, g); t.textContent = label;
+    const bb = el("rect", { class: "badge-bg", x: NW - 30, y: 5, width: 24, height: NH - 10, rx: 9, visibility: "hidden" }, g);
+    const bt = el("text", { class: "badge", x: NW - 18, y: NH / 2 + 4, "text-anchor": "middle", visibility: "hidden" }, g);
+    const pick = () => select(name);
+    g.addEventListener("click", pick);
+    g.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); pick(); } });
+    stationEls[name] = { g, bb, bt };
+  }
+  station("@verify", "@verify fan-out", true);
+  Object.keys(nodes).forEach(n => station(n, n));
+
+  // ── highlight ─────────────────────────────────────────────
+  function render() {
+    const on = new Set(), onEdges = new Set();
+    if (selected) {
+      on.add(selected);
+      edgeEls.forEach((e, i) => {
+        if (e.from === selected || e.to === selected) { on.add(e.from); on.add(e.to); onEdges.add(i); }
+      });
+    }
+    if (loopSel) REG.loops[loopSel].body.forEach(n => on.add(n));
+    if (!selected && !loopSel) routeHits.forEach((_, n) => on.add(n));
+    hidden.forEach(ph => Object.keys(pos).forEach(n => { if (pos[n].phase === ph) on.delete(n); }));
+    const active = on.size > 0 || hidden.size > 0;
+    svg.classList.toggle("dim", active);
+    Object.entries(stationEls).forEach(([n, s]) => {
+      const vis = !hidden.has(pos[n].phase);
+      s.g.classList.toggle("on", vis && (on.has(n) || (!selected && !loopSel && routeHits.size === 0)));
+      s.g.classList.toggle("sel", n === selected);
+      const hit = routeHits.get(n);
+      s.g.classList.toggle("hit", !!hit);
+      s.bb.setAttribute("visibility", hit ? "visible" : "hidden");
+      s.bt.setAttribute("visibility", hit ? "visible" : "hidden");
+      s.bt.textContent = hit ? hit : "";
+    });
+    edgeEls.forEach((e, i) => {
+      const vis = !hidden.has(pos[e.from].phase) && !hidden.has(pos[e.to].phase);
+      e.el.classList.toggle("on", vis && (onEdges.has(i) || (!active)));
+    });
+  }
+
+  // ── inspector ─────────────────────────────────────────────
+  const insp = document.getElementById("inspector");
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const tags = arr => `<div class="tags">${arr.map(x => `<span class="tag">${esc(x)}</span>`).join("")}</div>`;
+  function whenText(w) {
+    if (!w || w === "always") return "always";
+    const k = Object.keys(w)[0], v = w[k];
+    if (k === "ask") return "asks you: " + v;
+    if (k === "paths" || k === "content") return `if ${k} match ${[].concat(v).join(", ")}`;
+    if (k === "artifact") return `once a ${v} artifact exists`;
+    return `if open findings ≥ ${v}`;
+  }
+  function linkList(items) {
+    return `<ul class="links">${items.map(it => `<li><button type="button" data-go="${esc(it.skill)}" style="--c:${cvar(pos[it.skill].phase)}">${esc(it.skill)}</button><span class="cond">${esc(it.note)}</span></li>`).join("")}</ul>`;
+  }
+  function inspect(name) {
+    if (!name) {
+      insp.innerHTML = `<div class="eyebrow">Inspector</div><h2>Pick a station</h2>
+        <p>Click any skill on the map to see what triggers it, what it reads and writes, and where it hands off.</p>
+        <p class="cond">Install everything with Claude Code hooks:</p>
+        <div class="cmd"><code id="cmd">curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/install.sh | bash -s -- --bundle all --agent claude-code --with-hooks</code><button class="btn" type="button" data-copy="cmd">Copy</button></div>`;
+      return;
+    }
+    if (name === "@verify") {
+      insp.innerHTML = `<div class="eyebrow" style="color:var(--verify)">Verify · fan-out</div><h2>@verify</h2>
+        <p>When a PR opens, every reviewer whose own triggers match the diff runs in this order. Findings are merged into one <code>findings.json</code> and deduped by file, line and category.</p>
+        ${linkList(reviewOrder.map((s, i) => ({ skill: s, note: i === reviewOrder.length - 1 ? "always, last" : "if the diff matches" })))}`;
+      return;
+    }
+    const n = nodes[name], t = n.triggers || {};
+    const out = REG.edges.filter(e => e.from === name);
+    const inn = REG.edges.filter(e => e.to === name);
+    const viaFan = reviewOrder.includes(name);
+    const loops = Object.entries(REG.loops).filter(([, l]) => l.body.includes(name)).map(([k]) => k);
+    const parts = [
+      `<div class="eyebrow" style="color:${cvar(n.phase)}">${esc(REG.phases.find(p => p.id === n.phase).title)} · lifecycle-${esc(n.phase)}${loops.length ? " · " + loops.map(esc).join(", ") + " loop" : ""}</div>`,
+      `<h2>${esc(name)}</h2>`, `<p>${esc(n.summary || "")}</p>`];
+    if (t.intents && t.intents.length) parts.push(`<div class="kv"><h3>Triggered by requests like</h3>${tags(t.intents)}</div>`);
+    if (t.paths && t.paths.length) parts.push(`<div class="kv"><h3>Files</h3>${tags(t.paths)}</div>`);
+    const ev = [].concat((t.always_on || []).map(e => e + " (always)"), t.events || []);
+    if (ev.length) parts.push(`<div class="kv"><h3>Events</h3>${tags(ev)}</div>`);
+    if ((n.inputs || []).length || (n.outputs || []).length)
+      parts.push(`<div class="kv"><h3>Reads → writes</h3><p class="cond">${(n.inputs || []).map(esc).join(", ") || "—"} → ${(n.outputs || []).map(esc).join(", ") || "—"}</p></div>`);
+    if (inn.length || viaFan) parts.push(`<div class="kv"><h3>Comes after</h3>${linkList(inn.map(e => ({ skill: e.from, note: whenText(e.when) })))}${viaFan ? `<p class="cond">also runs in the PR reviewer fan-out</p>` : ""}</div>`);
+    if (out.length) parts.push(`<div class="kv"><h3>Hands off to</h3>${linkList(out.filter(e => e.to !== "@verify").map(e => ({ skill: e.to, note: whenText(e.when) })))}${out.some(e => e.to === "@verify") ? `<p class="cond">→ every matching reviewer (@verify fan-out)</p>` : ""}</div>`);
+    parts.push(`<div class="cmd"><code id="cmd">curl -sSL https://raw.githubusercontent.com/Sanmanchekar/skills-library/main/install.sh | bash -s -- ${esc(name)}</code><button class="btn" type="button" data-copy="cmd">Copy</button></div>`);
+    parts.push(`<a class="cond" href="${REPO}/tree/main/skills/${encodeURIComponent(name)}">Open the skill on GitHub</a>`);
+    insp.innerHTML = parts.join("");
+  }
+  insp.addEventListener("click", ev => {
+    const go = ev.target.closest("[data-go]");
+    if (go) { select(go.dataset.go); return; }
+    const cp = ev.target.closest("[data-copy]");
+    if (cp) {
+      const code = document.getElementById(cp.dataset.copy);
+      const done = () => { cp.textContent = "Copied"; setTimeout(() => (cp.textContent = "Copy"), 1400); };
+      const fallback = () => { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); cp.textContent = "Selected"; };
+      try { navigator.clipboard.writeText(code.textContent).then(done, fallback); } catch (e) { fallback(); }
+    }
+  });
+
+  function select(name) {
+    selected = selected === name ? null : name;
+    loopSel = null; syncLoops();
+    inspect(selected);
+    render();
+  }
+
+  // ── phase chips ───────────────────────────────────────────
+  const chips = document.getElementById("phases");
+  REG.phases.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.style.setProperty("--c", cvar(p.id));
+    b.setAttribute("aria-pressed", "true"); b.textContent = p.title; b.title = p.summary;
+    b.addEventListener("click", () => {
+      if (hidden.has(p.id)) hidden.delete(p.id); else hidden.add(p.id);
+      b.setAttribute("aria-pressed", String(!hidden.has(p.id)));
+      render();
+    });
+    chips.appendChild(b);
+  });
+
+  // ── loops ─────────────────────────────────────────────────
+  const loopsEl = document.getElementById("loops");
+  Object.entries(REG.loops).forEach(([k, l]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "loop"; b.dataset.loop = k; b.setAttribute("aria-pressed", "false");
+    b.innerHTML = `<strong>${esc(k)}</strong><span class="meta">cap ${l.max_iterations} · stop after ${l.no_progress || 2} flat ticks · checkpoint ${esc(l.checkpoint || "none")}</span>
+      <span class="cond">${esc(l.body.join(" → "))}</span><span>${esc(l.exit)}</span>`;
+    b.addEventListener("click", () => { loopSel = loopSel === k ? null : k; selected = null; inspect(null); syncLoops(); render(); });
+    loopsEl.appendChild(b);
+  });
+  function syncLoops() { loopsEl.querySelectorAll(".loop").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.loop === loopSel))); }
+
+  // ── router (mirrors route.py score_node) ──────────────────
+  const rx = s => { try { return new RegExp(s, "i"); } catch (e) { return null; } };
+  const globRx = g => new RegExp("^" + g.replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
+  const globMatch = (p, g) => { const r = globRx(g); return r.test(p) || r.test("/" + p); };
+  function score(n, ctx) {
+    const t = nodes[n].triggers || {}; let s = 0; const why = [];
+    if (ctx.prompt) {
+      const hits = (t.intents || []).filter(p => { const r = rx(p); return r && r.test(ctx.prompt); });
+      if (hits.length) { s += 3 + (hits.length - 1); why.push("request matches /" + hits[0] + "/"); }
+    }
+    if (ctx.paths.length && t.paths) {
+      const hit = ctx.paths.filter(p => t.paths.some(g => globMatch(p, g)));
+      if (hit.length) { s += 2; why.push(hit[0]); }
+    }
+    if (ctx.event) {
+      if ((t.always_on || []).includes(ctx.event)) { s += 5; why.push("always on " + ctx.event); }
+      else if ((t.events || []).includes(ctx.event)) { s += 2; why.push("listens for " + ctx.event); }
+    }
+    return { s, why };
+  }
+  const evSel = document.getElementById("event");
+  const evs = new Set(); Object.values(nodes).forEach(n => { const t = n.triggers || {}; (t.events || []).concat(t.always_on || []).forEach(e => evs.add(e)); });
+  [...evs].sort().forEach(e => { const o = document.createElement("option"); o.value = e; o.textContent = e; evSel.appendChild(o); });
+  const resEl = document.getElementById("results");
+  function route() {
+    const ctx = { prompt: document.getElementById("q").value.trim(), paths: document.getElementById("paths").value.split(/[\s,]+/).filter(Boolean), event: evSel.value };
+    const ranked = Object.keys(nodes).map(n => ({ n, ...score(n, ctx) })).filter(r => r.s > 0)
+      .sort((a, b) => b.s - a.s || (reviewOrder.indexOf(a.n) + 1 || 99) - (reviewOrder.indexOf(b.n) + 1 || 99) || a.n.localeCompare(b.n));
+    routeHits = new Map(ranked.slice(0, 6).map(r => [r.n, r.s]));
+    resEl.innerHTML = ranked.length
+      ? ranked.slice(0, 6).map(r => `<li style="--c:${cvar(nodes[r.n].phase)}"><span class="score">${r.s}</span><span><button type="button" class="tag" data-go="${esc(r.n)}">${esc(r.n)}</button> <span class="why">${esc(r.why.join(" · "))}</span></span></li>`).join("")
+      : `<li><span></span><span class="why">No skill matches. Name the phase, a file, or an event.</span></li>`;
+    if (!selected && !loopSel) render();
+  }
+  resEl.addEventListener("click", ev => { const go = ev.target.closest("[data-go]"); if (go) select(go.dataset.go); });
+  ["q", "paths", "event"].forEach(id => document.getElementById(id).addEventListener("input", route));
+
+  inspect(null);
+  route();
+  render();
+})();
+</script>
