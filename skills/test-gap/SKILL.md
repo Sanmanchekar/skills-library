@@ -115,6 +115,5 @@ def test_apply_discount_expiry_boundary(offset_seconds, valid):
 - **Hand off to**:
   - `test-generation` — once a `tests` artifact exists
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record test-gap --artifact tests=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record test-gap --artifact tests=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

@@ -97,6 +97,5 @@ Every open question has an owner and a due date. Unowned questions rot.
   - `tech-design` — always
   - `slo-definition` — if: _Is this a new service or a new user-facing journey?_
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record prd-writer --artifact prd=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record prd-writer --artifact prd=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

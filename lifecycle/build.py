@@ -221,9 +221,10 @@ def render_skill_section(g, name: str) -> str:
         for e in outbound:
             to = "every matching verify reviewer (`@verify` fan-out)" if e["to"] == "@verify" else f"`{e['to']}`"
             lines.append(f"  - {to} — {_when_text(e.get('when'))}")
-    lines += ["", "When the step is done, record it so the next skill can pick up the output:",
-              "`route.py run record " + name + (" --artifact " + node["outputs"][0] + "=<path>" if node.get("outputs") else "") + "`"
-              + " (script ships with the `lifecycle-router` skill).", END]
+    lines += ["", "This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is "
+              "installed, record the step so the next skill can pick up the output: `route.py run record " + name
+              + (" --artifact " + node["outputs"][0] + "=<path>" if node.get("outputs") else "") + "`. If it is not "
+              "installed, skip this and just name the next skill to the user.", END]
     return "\n".join(lines)
 
 

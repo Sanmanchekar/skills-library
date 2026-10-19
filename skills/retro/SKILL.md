@@ -127,6 +127,5 @@ Each of the four maps to a `detect / prevent / respond` action category.
 - **Hand off to**:
   - `prd-writer` — if: _Does an action item need product work?_
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record retro --artifact action-items=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record retro --artifact action-items=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

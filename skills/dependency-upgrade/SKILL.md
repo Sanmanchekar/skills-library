@@ -133,6 +133,5 @@ CVE-2026-1234 (HIGH) in the current version; also unlocks feature X.
 - **Hand off to**:
   - `test-gap` — always
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record dependency-upgrade --artifact diff=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record dependency-upgrade --artifact diff=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

@@ -135,6 +135,5 @@ pact-broker record-deployment --pacticipant checkout-web --version "$GIT_SHA" --
 - **Writes**: `tests` → `tests.md`
 - **Comes after**: api-contract, complexity-aware-coding, pr-description
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record contract-testing --artifact tests=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record contract-testing --artifact tests=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

@@ -120,6 +120,5 @@ Approach: keep the observation minimally invasive (sampling profiler, external t
   - `test-generation` — always
   - `rca` — if: _Did the bug reach production users?_
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record debug --artifact diff=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record debug --artifact diff=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

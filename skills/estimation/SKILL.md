@@ -136,6 +136,5 @@ If your worst is > 2× your likely, you have too much uncertainty — spike firs
   - `frontend-react-nextjs` — if paths match `**/next.config.*`, `**/app/**/page.tsx`, `**/app/**/layout.tsx`
   - `frontend-vue-nuxt` — if paths match `**/*.vue`, `**/nuxt.config.*`
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record estimation --artifact estimate=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record estimation --artifact estimate=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

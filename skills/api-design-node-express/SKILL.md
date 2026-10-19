@@ -93,6 +93,5 @@ router.post('/orders', async (req, res) => {
 - **Writes**: `findings` → `findings.json`
 - **Comes after**: api-contract
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record api-design-node-express --artifact findings=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record api-design-node-express --artifact findings=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

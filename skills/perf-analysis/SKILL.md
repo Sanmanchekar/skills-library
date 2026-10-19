@@ -138,6 +138,5 @@ Add `prefetch_related('items')` (or equivalent) so 50 SELECTs become 2.
   - `complexity-aware-coding` — always
   - `load-testing` — always
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record perf-analysis --artifact findings=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record perf-analysis --artifact findings=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

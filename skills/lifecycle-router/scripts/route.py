@@ -415,6 +415,30 @@ BASH_EVENTS = [
 ]
 
 
+def installed_skills(cwd: Optional[str] = None) -> Optional[set]:
+    """Skills installed next to the router, in the user scope, or in the project scope.
+
+    Returns None when nothing can be detected (e.g. an unusual layout) so callers
+    fall back to hinting every skill rather than none.
+    """
+    roots = [os.path.normpath(os.path.join(HERE, "..", "..")),
+             os.path.join(os.path.expanduser("~"), ".claude", "skills")]
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or cwd
+    if proj:
+        roots.append(os.path.join(proj, ".claude", "skills"))
+    found = set()
+    for root in roots:
+        try:
+            found.update(d for d in os.listdir(root) if os.path.isfile(os.path.join(root, d, "SKILL.md")))
+        except OSError:
+            continue
+    return found or None
+
+
+def _only_installed(picks: List[Dict[str, Any]], have: Optional[set]) -> List[Dict[str, Any]]:
+    return picks if have is None else [p for p in picks if p["skill"] in have]
+
+
 def hook(reg, payload: Dict[str, Any]) -> Optional[str]:
     ev = payload.get("hook_event_name")
     cwd = payload.get("cwd")
@@ -424,7 +448,9 @@ def hook(reg, payload: Dict[str, Any]) -> Optional[str]:
         if not prompt or prompt.startswith("/"):
             return None
         res = route(reg, {"prompt": prompt, "cwd": cwd}, limit=3)
-        if not res["matched"] or res["skills"][0]["score"] < HINT_THRESHOLD:
+        if res["matched"]:
+            res["skills"] = _only_installed(res["skills"], installed_skills(cwd))
+        if not res["matched"] or not res["skills"] or res["skills"][0]["score"] < HINT_THRESHOLD:
             return None
         names = ", ".join(r["skill"] for r in res["skills"])
         return (f"[lifecycle-router] This request looks like {res['phase']} work. Consider these skills: {names}"
@@ -439,6 +465,7 @@ def hook(reg, payload: Dict[str, Any]) -> Optional[str]:
                 picks = [r for r in rank(reg, ctx) if r["score"] >= HINT_THRESHOLD]
                 if event == "pr-opened":
                     picks = [{"skill": r["skill"], "why": r["why"]} for r in expand_verify(reg, ctx)] + picks
+                picks = _only_installed(picks, installed_skills(cwd))
                 names, seen = [], set()
                 for p in picks:
                     if p["skill"] not in seen:
@@ -457,7 +484,10 @@ def hook(reg, payload: Dict[str, Any]) -> Optional[str]:
         rel = os.path.relpath(path, root) if path.startswith(root) else path
         text = ti.get("new_string") or ti.get("content") or "\n".join(e.get("new_string", "") for e in ti.get("edits", []))
         ctx = {"paths": [rel], "added": text.splitlines()[:400], "cwd": cwd, "event": "edit"}
-        picks = [r for r in rank(reg, ctx) if r["phase"] in ("build", "verify") and r["score"] >= HINT_THRESHOLD]
+        # A path match alone is enough on an edit (a .tf file IS infra); content-only matches need more support.
+        picks = [r for r in rank(reg, ctx) if r["phase"] in ("build", "verify")
+                 and (r["score"] >= HINT_THRESHOLD or any("file(s) match" in w for w in r["why"]))]
+        picks = _only_installed(picks, installed_skills(cwd))
         fresh = [r for r in picks if not _seen(session, f"edit:{r['skill']}")]
         if not fresh:
             return None

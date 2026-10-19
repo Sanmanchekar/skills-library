@@ -105,6 +105,5 @@ func TestCharCount(t *testing.T) {
 - **Writes**: `tests` → `tests.md`
 - **Comes after**: complexity-aware-coding, debug, pr-description, refactor, tech-debt-scan, test-gap
 
-When the step is done, record it so the next skill can pick up the output:
-`route.py run record test-generation --artifact tests=<path>` (script ships with the `lifecycle-router` skill).
+This skill works on its own; the hand-offs above are suggestions. If the `lifecycle-router` skill is installed, record the step so the next skill can pick up the output: `route.py run record test-generation --artifact tests=<path>`. If it is not installed, skip this and just name the next skill to the user.
 <!-- lifecycle:end -->

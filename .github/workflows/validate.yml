@@ -163,3 +163,13 @@ jobs:
           test -f "$HOME/.claude/skills/lifecycle-router/references/registry.json"
           test -f "$HOME/.claude/agents/lifecycle-verify.md"
           grep -q route.py "$HOME/.claude/settings.json"
+
+      - name: Installer standalone skill (no router, no agents, no hooks)
+        run: |
+          set -euo pipefail
+          export HOME=$(mktemp -d)
+          ./install.sh debug --agent claude-code
+          test -f "$HOME/.claude/skills/debug/SKILL.md"
+          test ! -e "$HOME/.claude/skills/lifecycle-router"
+          test ! -e "$HOME/.claude/agents"
+          test ! -e "$HOME/.claude/settings.json"
