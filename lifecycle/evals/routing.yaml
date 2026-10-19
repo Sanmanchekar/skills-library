@@ -1,0 +1,100 @@
+# Routing evals — run with: python3 lifecycle/build.py eval
+#
+# Each case routes a prompt / paths / added lines / event and asserts that every
+# `expect` skill lands in the top `top` results (default 3) and no `not` skill does.
+# `fanout: true` checks the @verify reviewer fan-out instead of the ranking.
+# Add a case whenever a skill misfires — this file is the regression suite for triggers.
+
+cases:
+  # ── plan ─────────────────────────────────────────────
+  - {prompt: "write a PRD for bulk invoice export", expect: prd-writer}
+  - {prompt: "I have a rough feature idea for saved carts", expect: prd-writer}
+  - {prompt: "estimate this spec, how long will it take", expect: estimation}
+  - {prompt: "write a technical design doc for the notification fan-out", expect: tech-design}
+  - {prompt: "threat model the new partner login flow", expect: threat-model, not: [security-review]}
+  - {prompt: "write an ADR for choosing Postgres over Mongo", expect: adr}
+
+  # ── build ────────────────────────────────────────────
+  - {prompt: "design the OpenAPI contract for the orders API", expect: api-contract}
+  - {prompt: "is renaming this field a breaking change for the api", expect: api-contract}
+  - {prompt: "review this FastAPI router", expect: api-design-python-fastapi}
+  - {prompt: "review my DRF serializer", expect: api-design-python-django}
+  - {prompt: "add a column to the orders table", expect: db-migration}
+  - {paths: ["migrations/0042_add_refund_key.py"], expect: db-migration}
+  - {paths: ["db/migrate/20260101_add_index.rb"], expect: db-migration}
+  - {prompt: "put the new checkout behind a feature flag with a kill switch", expect: feature-flag-rollout}
+  - {prompt: "refactor this module, split the god class", expect: refactor}
+  - {prompt: "why is our rounding off by a cent on split payments", expect: money-handling}
+  - {prompt: "is this loop going to scale, what is the big-o", expect: complexity-aware-coding}
+  - {prompt: "our ledger doesn't match the settlement report", expect: reconciliation-design}
+  - {paths: ["app/dashboard/page.tsx"], added: ["'use client'"], expect: frontend-react-nextjs}
+
+  # ── verify ───────────────────────────────────────────
+  - {prompt: "review this PR", expect: code-review}
+  - {prompt: "review this PR for security issues", expect: [security-review, code-review]}
+  - {prompt: "check this for XSS and SQL injection", expect: security-review}
+  - {prompt: "write unit tests for the parser", expect: test-generation, not: [test-gap]}
+  - {prompt: "what's not tested in this diff, find missing tests", expect: test-gap}
+  - {prompt: "write playwright e2e tests for signup", expect: e2e-testing}
+  - {prompt: "set up pact consumer-driven contract tests", expect: contract-testing}
+  - {prompt: "load test the search endpoint with k6 before launch", expect: load-testing, not: [perf-analysis]}
+  - {prompt: "is this form accessible, check WCAG", expect: a11y-review}
+  - {prompt: "make this refund endpoint safe to retry", expect: idempotency-review}
+  - {prompt: "harden our webhook receiver signature verification", expect: webhook-hardening}
+  - {prompt: "PCI check: will this pass audit", expect: compliance-review}
+  - {paths: ["infra/main.tf"], expect: iac-review}
+  - {paths: ["charts/api/values.yaml"], expect: iac-review}
+
+  # ── ship ─────────────────────────────────────────────
+  - {prompt: "write a commit message for this", expect: commit-message}
+  - {event: pre-commit, expect: commit-message}
+  - {prompt: "create a PR description", expect: pr-description}
+  - {prompt: "generate release notes since v2.3", expect: release-notes, not: [deploy-plan]}
+  - {prompt: "write a deployment plan with rollback for this change", expect: deploy-plan, not: [release-notes]}
+  - {event: pre-deploy, expect: [deploy-plan, production-readiness]}
+  - {prompt: "is this service ready for prod, run a go/no-go", expect: production-readiness}
+
+  # ── operate ──────────────────────────────────────────
+  - {prompt: "build a grafana dashboard and add alerts", expect: observability}
+  - {prompt: "define SLOs and burn-rate alerts for checkout", expect: slo-definition}
+  - {prompt: "write a runbook for the queue backlog alert", expect: runbook}
+  - {prompt: "I got paged for high 5xx on payments", expect: oncall-triage}
+  - {event: alert, expect: oncall-triage}
+  - {prompt: "draft the status page update for this incident", expect: incident-comms}
+  - {prompt: "analyze these logs and correlate by trace id", expect: log-analysis, not: [rca]}
+  - {prompt: "our cloud bill doubled, do a cost review", expect: cost-review}
+
+  # ── learn ────────────────────────────────────────────
+  - {prompt: "customer reported a bug, here are the steps to repro", expect: bug-repro}
+  - {event: bug-report, expect: bug-repro}
+  - {prompt: "debug this stack trace", expect: debug}
+  - {prompt: "this endpoint is too slow, profile it", expect: perf-analysis, not: [load-testing]}
+  - {prompt: "write the RCA / postmortem for yesterday's outage", expect: rca}
+  - {prompt: "run a sprint retro", expect: retro}
+
+  # ── maintain ─────────────────────────────────────────
+  - {prompt: "upgrade django to 5.1", expect: dependency-upgrade}
+  - {paths: ["go.mod"], expect: dependency-upgrade}
+  - {prompt: "scan for tech debt and hotspots", expect: tech-debt-scan}
+  - {prompt: "deprecate the v1 orders endpoint and sunset it", expect: deprecation}
+  - {prompt: "what tables should this service not touch", expect: db-scoping, not: [capability-extraction]}
+  - {prompt: "what capabilities should this service not own", expect: capability-extraction, not: [db-scoping]}
+  - {prompt: "generate a README for this package", expect: docs-writer}
+  - {prompt: "onboard me, explain this repo", expect: onboarding}
+  - {prompt: "prepare a take-home for a backend interview", expect: interview-kit}
+
+  # ── @verify fan-out on a PR diff ─────────────────────
+  - fanout: true
+    paths: ["src/payments/refund.py", "migrations/0042_refund_key.py"]
+    added: ["amount = order.total - fee", "ALTER TABLE refunds ADD COLUMN idempotency_key text"]
+    expect: [idempotency-review, money-handling, db-migration, code-review]
+    not: [a11y-review, iac-review]
+  - fanout: true
+    paths: ["web/components/SignupForm.tsx"]
+    added: ["<div onClick={submit}>Sign up</div>"]
+    expect: [a11y-review, code-review]
+    not: [db-migration]
+  - fanout: true
+    paths: ["src/webhooks/provider.py"]
+    added: ["sig = request.headers['X-Provider-Signature']"]
+    expect: [webhook-hardening, code-review]

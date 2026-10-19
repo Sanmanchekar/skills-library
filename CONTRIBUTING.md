@@ -6,7 +6,10 @@
 2. Add `SKILL.md` following the spec below
 3. Add `README.md` (SEO-optimized landing page) — see any existing skill for template
 4. Update the skill table in the root [README.md](README.md)
-5. Open a PR
+5. **Wire it into the lifecycle** — add a node to [`lifecycle/graph.yaml`](lifecycle/graph.yaml) (phase, triggers, inputs, outputs), list it under its phase agent's `owns`, and add at least one edge in or out
+6. Add a routing case to [`lifecycle/evals/routing.yaml`](lifecycle/evals/routing.yaml) for each trigger phrase that should reach it (and a `not:` for any look-alike skill)
+7. Run `pip install pyyaml && python3 lifecycle/build.py && python3 lifecycle/build.py eval` and commit the generated files
+8. Open a PR
 
 ## SKILL.md spec
 
@@ -74,12 +77,28 @@ Each skill README serves as its SEO landing page. Structure:
 ## Related skills
 ```
 
+## Lifecycle metadata lives in the graph, not the frontmatter
+
+Keep `SKILL.md` frontmatter to `name`, `description` and `allowed-tools`. Agents treat unknown keys differently, so all routing metadata goes in `lifecycle/graph.yaml`. `build.py` then appends a generated `## Lifecycle` section to each SKILL.md (between `<!-- lifecycle:begin -->` markers). That section tells any agent, even one without the router, what comes before and after. Never edit it by hand.
+
+| Field | Meaning |
+|---|---|
+| `triggers.intents` | Regexes matched against the user's prompt |
+| `triggers.paths` | Globs matched against changed / edited files |
+| `triggers.content` | Regexes matched against added diff lines |
+| `triggers.events` / `always_on` | Lifecycle events it listens to / always runs on |
+| `inputs` / `outputs` | Artifact types read from / written to `.lifecycle/<run>/` |
+
+Generated files (`skills/lifecycle-router/references/registry.json`, `agents/*.md`, `docs/lifecycle.md`, `lifecycle/bundles.txt`, the `## Lifecycle` sections) are checked for drift in CI.
+
 ## CI
 
 Every PR runs `.github/workflows/validate.yml`, which:
 - Checks every `skills/*/SKILL.md` has valid frontmatter (`name`, `description`)
 - Checks every skill has a `README.md`
 - Checks the root README index lists every skill
+- Validates `lifecycle/graph.yaml` (every skill has a node, edges and loops reference real skills, every loop has a cap and exit) and fails if generated files are stale
+- Runs the routing evals and router / hook / installer smoke tests
 
 ## License
 

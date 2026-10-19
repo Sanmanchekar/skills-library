@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python3 \"$HOME/.claude/skills/lifecycle-router/scripts/route.py\" hook", "timeout": 10}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 \"$HOME/.claude/skills/lifecycle-router/scripts/route.py\" hook", "timeout": 15}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {"type": "command", "command": "python3 \"$HOME/.claude/skills/lifecycle-router/scripts/route.py\" hook", "timeout": 10}
+        ]
+      }
+    ]
+  }
+}

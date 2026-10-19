@@ -1,0 +1,2086 @@
+{
+ "version": 1,
+ "phases": [
+  {
+   "id": "plan",
+   "title": "Plan",
+   "summary": "Turn an idea into a scoped, designed, estimated piece of work"
+  },
+  {
+   "id": "build",
+   "title": "Build",
+   "summary": "Write the change with design rules applied at write-time"
+  },
+  {
+   "id": "verify",
+   "title": "Verify",
+   "summary": "Prove the change is correct, safe, and tested before merge"
+  },
+  {
+   "id": "ship",
+   "title": "Ship",
+   "summary": "Package, describe, gate, and deploy the change"
+  },
+  {
+   "id": "operate",
+   "title": "Operate",
+   "summary": "Run it in production — signals, SLOs, response"
+  },
+  {
+   "id": "learn",
+   "title": "Learn",
+   "summary": "Turn bugs, slowness, and incidents into fixes and lessons"
+  },
+  {
+   "id": "maintain",
+   "title": "Maintain",
+   "summary": "Keep the codebase healthy between features"
+  },
+  {
+   "id": "team",
+   "title": "Team",
+   "summary": "People work outside the change lifecycle"
+  }
+ ],
+ "artifacts": {
+  "prd": {
+   "file": "prd.md",
+   "desc": "Problem, users, scope, success metrics"
+  },
+  "estimate": {
+   "file": "estimate.md",
+   "desc": "Task breakdown with sizes and risk"
+  },
+  "design": {
+   "file": "design.md",
+   "desc": "Technical design doc"
+  },
+  "threat-model": {
+   "file": "threat-model.md",
+   "desc": "STRIDE table, mitigations, residual risk"
+  },
+  "adr": {
+   "file": "adr.md",
+   "desc": "Architecture decision record"
+  },
+  "api-contract": {
+   "file": "api-contract.yaml",
+   "desc": "OpenAPI / protobuf / AsyncAPI contract"
+  },
+  "diff": {
+   "file": "diff.patch",
+   "desc": "The change under work"
+  },
+  "complexity-note": {
+   "file": "complexity.md",
+   "desc": "Per-change Big O notes"
+  },
+  "findings": {
+   "file": "findings.json",
+   "desc": "Severity-tagged findings (schema: lifecycle/schemas/findings.schema.json)"
+  },
+  "tests": {
+   "file": "tests.md",
+   "desc": "Tests written / gaps found, with pass/fail"
+  },
+  "repro": {
+   "file": "repro.md",
+   "desc": "Minimal reproduction + failing test path"
+  },
+  "commit": {
+   "file": "commit.txt",
+   "desc": "Commit message"
+  },
+  "pr": {
+   "file": "pr.md",
+   "desc": "PR description"
+  },
+  "release-notes": {
+   "file": "release-notes.md",
+   "desc": "User-facing changelog"
+  },
+  "deploy-plan": {
+   "file": "deploy-plan.md",
+   "desc": "Ordered deploy steps, verification, rollback"
+  },
+  "readiness": {
+   "file": "readiness.md",
+   "desc": "Go/no-go scorecard"
+  },
+  "slo": {
+   "file": "slo.md",
+   "desc": "SLIs, SLOs, burn-rate alerts"
+  },
+  "dashboards": {
+   "file": "dashboards/",
+   "desc": "Dashboards and alert rules"
+  },
+  "runbook": {
+   "file": "runbook.md",
+   "desc": "Symptom → mitigation runbook"
+  },
+  "triage": {
+   "file": "triage.md",
+   "desc": "Severity, first actions, escalation"
+  },
+  "timeline": {
+   "file": "timeline.md",
+   "desc": "UTC incident timeline from logs"
+  },
+  "rca": {
+   "file": "rca.md",
+   "desc": "Root cause, contributing factors, action items"
+  },
+  "action-items": {
+   "file": "action-items.md",
+   "desc": "Owned, dated follow-ups"
+  },
+  "debt-register": {
+   "file": "debt-register.md",
+   "desc": "Ranked tech-debt items"
+  },
+  "docs": {
+   "file": "docs/",
+   "desc": "Generated documentation"
+  }
+ },
+ "agents": {
+  "plan": {
+   "entry": "prd-writer",
+   "owns": [
+    "prd-writer",
+    "tech-design",
+    "threat-model",
+    "estimation",
+    "adr"
+   ],
+   "loop": "design"
+  },
+  "build": {
+   "entry": "complexity-aware-coding",
+   "owns": [
+    "api-contract",
+    "api-design-go-gin",
+    "api-design-node-express",
+    "api-design-python-fastapi",
+    "api-design-python-django",
+    "frontend-react-nextjs",
+    "frontend-vue-nuxt",
+    "complexity-aware-coding",
+    "money-handling",
+    "db-migration",
+    "refactor",
+    "feature-flag-rollout",
+    "reconciliation-design"
+   ],
+   "loop": "build"
+  },
+  "verify": {
+   "entry": "code-review",
+   "owns": [
+    "test-gap",
+    "test-generation",
+    "e2e-testing",
+    "contract-testing",
+    "load-testing",
+    "a11y-review",
+    "security-review",
+    "compliance-review",
+    "idempotency-review",
+    "webhook-hardening",
+    "iac-review",
+    "code-review"
+   ],
+   "loop": "review"
+  },
+  "ship": {
+   "entry": "commit-message",
+   "owns": [
+    "commit-message",
+    "pr-description",
+    "release-notes",
+    "production-readiness",
+    "deploy-plan"
+   ],
+   "loop": "rollout"
+  },
+  "operate": {
+   "entry": "oncall-triage",
+   "owns": [
+    "slo-definition",
+    "observability",
+    "runbook",
+    "oncall-triage",
+    "incident-comms",
+    "log-analysis",
+    "cost-review"
+   ],
+   "loop": "incident"
+  },
+  "learn": {
+   "entry": "debug",
+   "owns": [
+    "bug-repro",
+    "debug",
+    "perf-analysis",
+    "rca",
+    "retro"
+   ],
+   "loop": "debug"
+  },
+  "maintain": {
+   "entry": "tech-debt-scan",
+   "owns": [
+    "tech-debt-scan",
+    "dependency-upgrade",
+    "deprecation",
+    "capability-extraction",
+    "db-scoping",
+    "docs-writer",
+    "onboarding"
+   ],
+   "loop": null
+  },
+  "team": {
+   "entry": "interview-kit",
+   "owns": [
+    "interview-kit"
+   ],
+   "loop": null
+  }
+ },
+ "loops": {
+  "design": {
+   "body": [
+    "tech-design",
+    "threat-model",
+    "adr"
+   ],
+   "exit": "Every open question in design.md has an answer or an owner; every HIGH threat has a mitigation",
+   "metric": "open_questions",
+   "max_iterations": 3,
+   "no_progress": 2,
+   "checkpoint": "each_iteration"
+  },
+  "build": {
+   "body": [
+    "complexity-aware-coding",
+    "test-generation"
+   ],
+   "exit": "Tests pass and every changed function has a complexity note",
+   "metric": "failing_tests",
+   "max_iterations": 4,
+   "no_progress": 2,
+   "checkpoint": "on_exit"
+  },
+  "review": {
+   "body": [
+    "code-review",
+    "security-review",
+    "test-gap"
+   ],
+   "exit": "No CRITICAL or HIGH findings open (wontfix requires a human)",
+   "metric": "open_high_findings",
+   "max_iterations": 3,
+   "no_progress": 2,
+   "checkpoint": "each_iteration"
+  },
+  "debug": {
+   "body": [
+    "debug"
+   ],
+   "exit": "A regression test fails before the fix and passes after",
+   "metric": "repro_failures",
+   "max_iterations": 6,
+   "no_progress": 3,
+   "checkpoint": "on_exit"
+  },
+  "perf": {
+   "body": [
+    "perf-analysis"
+   ],
+   "exit": "Target latency/throughput met, measured, not estimated",
+   "metric": "ms_over_target",
+   "max_iterations": 4,
+   "no_progress": 2,
+   "checkpoint": "each_iteration"
+  },
+  "incident": {
+   "body": [
+    "oncall-triage",
+    "log-analysis",
+    "incident-comms"
+   ],
+   "exit": "Impact mitigated and confirmed by the SLI recovering",
+   "metric": "errors_over_slo",
+   "max_iterations": 8,
+   "no_progress": 3,
+   "checkpoint": "each_iteration"
+  },
+  "rollout": {
+   "body": [
+    "deploy-plan"
+   ],
+   "exit": "Flag / canary at 100% with gate metrics green, or rolled back",
+   "metric": "ramp_percent_remaining",
+   "max_iterations": 6,
+   "no_progress": 2,
+   "checkpoint": "each_iteration"
+  }
+ },
+ "edges": [
+  {
+   "from": "prd-writer",
+   "to": "tech-design",
+   "when": "always"
+  },
+  {
+   "from": "prd-writer",
+   "to": "slo-definition",
+   "when": {
+    "ask": "Is this a new service or a new user-facing journey?"
+   }
+  },
+  {
+   "from": "tech-design",
+   "to": "threat-model",
+   "when": {
+    "ask": "Does the design add a trust boundary, auth path, or new external input?"
+   }
+  },
+  {
+   "from": "tech-design",
+   "to": "adr",
+   "when": {
+    "ask": "Did the design make a hard-to-reverse choice between real alternatives?"
+   }
+  },
+  {
+   "from": "tech-design",
+   "to": "api-contract",
+   "when": {
+    "ask": "Does the design add or change an API?"
+   }
+  },
+  {
+   "from": "tech-design",
+   "to": "feature-flag-rollout",
+   "when": {
+    "ask": "Is the change risky enough to ship dark behind a flag?"
+   }
+  },
+  {
+   "from": "tech-design",
+   "to": "estimation",
+   "when": "always"
+  },
+  {
+   "from": "threat-model",
+   "to": "estimation",
+   "when": "always"
+  },
+  {
+   "from": "api-contract",
+   "to": "api-design-go-gin",
+   "when": {
+    "content": [
+     "github.com/gin-gonic/gin"
+    ]
+   }
+  },
+  {
+   "from": "api-contract",
+   "to": "api-design-node-express",
+   "when": {
+    "content": [
+     "express"
+    ]
+   }
+  },
+  {
+   "from": "api-contract",
+   "to": "api-design-python-fastapi",
+   "when": {
+    "content": [
+     "fastapi"
+    ]
+   }
+  },
+  {
+   "from": "api-contract",
+   "to": "api-design-python-django",
+   "when": {
+    "content": [
+     "rest_framework"
+    ]
+   }
+  },
+  {
+   "from": "api-contract",
+   "to": "contract-testing",
+   "when": {
+    "ask": "Does another service consume this API?"
+   }
+  },
+  {
+   "from": "estimation",
+   "to": "complexity-aware-coding",
+   "when": "always"
+  },
+  {
+   "from": "estimation",
+   "to": "frontend-react-nextjs",
+   "when": {
+    "paths": [
+     "**/next.config.*",
+     "**/app/**/page.tsx",
+     "**/app/**/layout.tsx"
+    ]
+   }
+  },
+  {
+   "from": "estimation",
+   "to": "frontend-vue-nuxt",
+   "when": {
+    "paths": [
+     "**/*.vue",
+     "**/nuxt.config.*"
+    ]
+   }
+  },
+  {
+   "from": "frontend-react-nextjs",
+   "to": "a11y-review",
+   "when": "always"
+  },
+  {
+   "from": "frontend-react-nextjs",
+   "to": "e2e-testing",
+   "when": "always"
+  },
+  {
+   "from": "frontend-vue-nuxt",
+   "to": "a11y-review",
+   "when": "always"
+  },
+  {
+   "from": "frontend-vue-nuxt",
+   "to": "e2e-testing",
+   "when": "always"
+  },
+  {
+   "from": "tech-design",
+   "to": "reconciliation-design",
+   "when": {
+    "ask": "Does the design move money between systems whose records must agree?"
+   }
+  },
+  {
+   "from": "reconciliation-design",
+   "to": "money-handling",
+   "when": "always"
+  },
+  {
+   "from": "reconciliation-design",
+   "to": "idempotency-review",
+   "when": "always"
+  },
+  {
+   "from": "e2e-testing",
+   "to": "code-review",
+   "when": "always"
+  },
+  {
+   "from": "complexity-aware-coding",
+   "to": "@verify",
+   "when": "always"
+  },
+  {
+   "from": "db-migration",
+   "to": "deploy-plan",
+   "when": "always"
+  },
+  {
+   "from": "refactor",
+   "to": "test-generation",
+   "when": "always"
+  },
+  {
+   "from": "test-gap",
+   "to": "test-generation",
+   "when": {
+    "artifact": "tests"
+   }
+  },
+  {
+   "from": "code-review",
+   "to": "commit-message",
+   "when": "always"
+  },
+  {
+   "from": "commit-message",
+   "to": "pr-description",
+   "when": "always"
+  },
+  {
+   "from": "pr-description",
+   "to": "@verify",
+   "when": "always"
+  },
+  {
+   "from": "code-review",
+   "to": "deploy-plan",
+   "when": {
+    "paths": [
+     "**/migrations/**",
+     "**/*.tf",
+     "**/helm/**",
+     "**/k8s/**"
+    ]
+   }
+  },
+  {
+   "from": "code-review",
+   "to": "release-notes",
+   "when": {
+    "ask": "Is this merge part of a release?"
+   }
+  },
+  {
+   "from": "release-notes",
+   "to": "production-readiness",
+   "when": {
+    "ask": "Is this a first launch or a major change?"
+   }
+  },
+  {
+   "from": "production-readiness",
+   "to": "deploy-plan",
+   "when": "always"
+  },
+  {
+   "from": "load-testing",
+   "to": "production-readiness",
+   "when": "always"
+  },
+  {
+   "from": "deploy-plan",
+   "to": "observability",
+   "when": "always"
+  },
+  {
+   "from": "slo-definition",
+   "to": "observability",
+   "when": "always"
+  },
+  {
+   "from": "observability",
+   "to": "runbook",
+   "when": "always"
+  },
+  {
+   "from": "oncall-triage",
+   "to": "log-analysis",
+   "when": "always"
+  },
+  {
+   "from": "oncall-triage",
+   "to": "incident-comms",
+   "when": {
+    "ask": "Is the incident customer-visible?"
+   }
+  },
+  {
+   "from": "log-analysis",
+   "to": "rca",
+   "when": "always"
+  },
+  {
+   "from": "incident-comms",
+   "to": "rca",
+   "when": "always"
+  },
+  {
+   "from": "rca",
+   "to": "retro",
+   "when": "always"
+  },
+  {
+   "from": "rca",
+   "to": "runbook",
+   "when": "always"
+  },
+  {
+   "from": "retro",
+   "to": "prd-writer",
+   "when": {
+    "ask": "Does an action item need product work?"
+   }
+  },
+  {
+   "from": "cost-review",
+   "to": "iac-review",
+   "when": {
+    "paths": [
+     "**/*.tf",
+     "**/helm/**",
+     "**/k8s/**"
+    ]
+   }
+  },
+  {
+   "from": "bug-repro",
+   "to": "debug",
+   "when": "always"
+  },
+  {
+   "from": "debug",
+   "to": "test-generation",
+   "when": "always"
+  },
+  {
+   "from": "debug",
+   "to": "rca",
+   "when": {
+    "ask": "Did the bug reach production users?"
+   }
+  },
+  {
+   "from": "perf-analysis",
+   "to": "complexity-aware-coding",
+   "when": "always"
+  },
+  {
+   "from": "perf-analysis",
+   "to": "load-testing",
+   "when": "always"
+  },
+  {
+   "from": "tech-debt-scan",
+   "to": "refactor",
+   "when": "always"
+  },
+  {
+   "from": "tech-debt-scan",
+   "to": "dependency-upgrade",
+   "when": "always"
+  },
+  {
+   "from": "tech-debt-scan",
+   "to": "deprecation",
+   "when": {
+    "ask": "Is any debt item dead code or an unused API?"
+   }
+  },
+  {
+   "from": "tech-debt-scan",
+   "to": "test-generation",
+   "when": "always"
+  },
+  {
+   "from": "dependency-upgrade",
+   "to": "test-gap",
+   "when": "always"
+  },
+  {
+   "from": "deprecation",
+   "to": "deploy-plan",
+   "when": "always"
+  },
+  {
+   "from": "deprecation",
+   "to": "release-notes",
+   "when": "always"
+  },
+  {
+   "from": "capability-extraction",
+   "to": "tech-design",
+   "when": "always"
+  },
+  {
+   "from": "db-scoping",
+   "to": "tech-design",
+   "when": "always"
+  },
+  {
+   "from": "onboarding",
+   "to": "docs-writer",
+   "when": {
+    "ask": "Were doc gaps found during onboarding?"
+   }
+  }
+ ],
+ "conflicts": {
+  "review_order": [
+   "compliance-review",
+   "security-review",
+   "idempotency-review",
+   "webhook-hardening",
+   "money-handling",
+   "db-migration",
+   "iac-review",
+   "a11y-review",
+   "contract-testing",
+   "test-gap",
+   "code-review"
+  ],
+  "dedupe": {
+   "key": [
+    "file",
+    "line",
+    "category"
+   ],
+   "keep": "highest_severity",
+   "merge": "credit_all_sources"
+  },
+  "disambiguate": [
+   {
+    "pair": [
+     "capability-extraction",
+     "db-scoping"
+    ],
+    "rule": "behaviours/services → capability-extraction; tables/data → db-scoping"
+   },
+   {
+    "pair": [
+     "perf-analysis",
+     "load-testing"
+    ],
+    "rule": "something is slow now → perf-analysis; will it hold under load → load-testing"
+   },
+   {
+    "pair": [
+     "security-review",
+     "threat-model"
+    ],
+    "rule": "a diff exists → security-review; only a design exists → threat-model"
+   },
+   {
+    "pair": [
+     "test-gap",
+     "test-generation"
+    ],
+    "rule": "which tests are missing → test-gap; write them → test-generation"
+   },
+   {
+    "pair": [
+     "release-notes",
+     "deploy-plan"
+    ],
+    "rule": "for users → release-notes; for whoever deploys → deploy-plan"
+   },
+   {
+    "pair": [
+     "debug",
+     "rca"
+    ],
+    "rule": "make it work → debug; why did it happen and how do we stop it → rca"
+   },
+   {
+    "pair": [
+     "log-analysis",
+     "rca"
+    ],
+    "rule": "build the timeline → log-analysis; explain it → rca"
+   }
+  ],
+  "max_parallel": 4
+ },
+ "nodes": {
+  "prd-writer": {
+   "phase": "plan",
+   "triggers": {
+    "intents": [
+     "\\bprd\\b",
+     "product (spec|brief|requirements)",
+     "feature idea",
+     "write (a )?spec"
+    ],
+    "events": [
+     "idea"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "prd"
+   ],
+   "summary": "Turn a rough product ask into a structured Product Requirements Document."
+  },
+  "estimation": {
+   "phase": "plan",
+   "triggers": {
+    "intents": [
+     "\\bestimat",
+     "how long (will|would)",
+     "t-?shirt",
+     "size (these|this|the) task",
+     "story points"
+    ],
+    "events": [
+     "spec-ready"
+    ]
+   },
+   "inputs": [
+    "prd",
+    "design"
+   ],
+   "outputs": [
+    "estimate"
+   ],
+   "summary": "Break a spec / PRD / feature into tasks with T-shirt sizes (XS / S / M / L / XL), risk flags, dependencies, and an honest range (best / likely / worst)."
+  },
+  "tech-design": {
+   "phase": "plan",
+   "triggers": {
+    "intents": [
+     "(tech(nical)?|system) design",
+     "design doc",
+     "\\brfc\\b",
+     "how should we (build|architect)",
+     "architecture for"
+    ],
+    "events": [
+     "spec-ready"
+    ]
+   },
+   "inputs": [
+    "prd"
+   ],
+   "outputs": [
+    "design"
+   ],
+   "summary": "Write a technical design doc (TDD / design doc / RFC) that sits between the PRD and the ADRs — goals and non-goals, current state, proposed design (components …"
+  },
+  "threat-model": {
+   "phase": "plan",
+   "triggers": {
+    "intents": [
+     "threat model",
+     "\\bstride\\b",
+     "attack surface",
+     "abuse case",
+     "trust boundar"
+    ],
+    "events": [
+     "design-ready"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "threat-model"
+   ],
+   "summary": "Design-time threat model for a feature, service, or architecture — inventories assets, entry points, and trust boundaries, draws the data-flow diagram, runs …"
+  },
+  "adr": {
+   "phase": "plan",
+   "triggers": {
+    "intents": [
+     "\\badr\\b",
+     "decision record",
+     "document (this|the|our) decision",
+     "why did we (choose|pick)"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "adr"
+   ],
+   "summary": "Write an Architecture Decision Record (ADR / MADR format) capturing a technical decision — context, options considered, decision, consequences, and status."
+  },
+  "api-contract": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "api contract",
+     "openapi",
+     "swagger",
+     "\\bproto(buf)?\\b",
+     "asyncapi",
+     "breaking (api )?change",
+     "version(ing)? (the|this|our) api"
+    ],
+    "paths": [
+     "**/openapi*.y*ml",
+     "**/openapi*.json",
+     "**/swagger*.y*ml",
+     "**/*.proto",
+     "**/asyncapi*.y*ml"
+    ],
+    "events": [
+     "design-ready"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "api-contract"
+   ],
+   "summary": "Contract-first API design, framework-agnostic — writes or reviews the spec before the code (OpenAPI 3.1 for HTTP, protobuf for gRPC, AsyncAPI for events)."
+  },
+  "api-design-go-gin": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "\\bgin\\b.*(endpoint|handler|route|api)",
+     "(endpoint|handler|route|api).*\\bgin\\b"
+    ],
+    "content": [
+     "gin\\.(Context|Engine|Default|New)\\b",
+     "\"github.com/gin-gonic/gin\""
+    ]
+   },
+   "inputs": [
+    "api-contract"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a REST API written in Go with the Gin framework."
+  },
+  "api-design-node-express": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "\\bexpress\\b.*(endpoint|handler|route|router|api)",
+     "(endpoint|route|router|api).*\\bexpress\\b"
+    ],
+    "content": [
+     "express\\.Router\\(",
+     "require\\(.express.\\)",
+     "from .express."
+    ]
+   },
+   "inputs": [
+    "api-contract"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a REST API written in Node.js with Express."
+  },
+  "api-design-python-fastapi": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "\\bfastapi\\b"
+    ],
+    "content": [
+     "from fastapi import",
+     "APIRouter\\(",
+     "@(app|router)\\.(get|post|put|patch|delete)\\("
+    ]
+   },
+   "inputs": [
+    "api-contract"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a REST API written in Python with FastAPI."
+  },
+  "api-design-python-django": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "\\b(drf|django rest)\\b",
+     "serializer",
+     "viewset"
+    ],
+    "paths": [
+     "**/serializers.py",
+     "**/views.py",
+     "**/viewsets.py",
+     "**/urls.py"
+    ],
+    "content": [
+     "from rest_framework",
+     "serializers\\.(Model)?Serializer",
+     "viewsets\\."
+    ]
+   },
+   "inputs": [
+    "api-contract"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a REST API written in Python with Django REST Framework (DRF)."
+  },
+  "frontend-react-nextjs": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "next\\.?js",
+     "app router",
+     "server component",
+     "server action"
+    ],
+    "paths": [
+     "**/app/**/page.tsx",
+     "**/app/**/layout.tsx",
+     "**/next.config.*"
+    ],
+    "content": [
+     "\"use client\"",
+     "'use client'",
+     "from .next/"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a Next.js (App Router) frontend."
+  },
+  "frontend-vue-nuxt": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "\\bnuxt\\b",
+     "\\bvue\\b"
+    ],
+    "paths": [
+     "**/*.vue",
+     "**/nuxt.config.*",
+     "**/composables/**"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a Nuxt 3 (Vue 3) frontend."
+  },
+  "complexity-aware-coding": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "big[- ]?o",
+     "complexity",
+     "scal(e|ability)",
+     "n\\+1",
+     "too slow for large",
+     "memory usage"
+    ],
+    "content": [
+     "\\bfor\\b.*\\bin\\b",
+     "\\.(filter|map|reduce|forEach|sort)\\(",
+     "\\b(select|SELECT)\\b.*\\b(from|FROM)\\b",
+     "objects\\.(filter|all|get)\\("
+    ],
+    "events": [
+     "edit"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "complexity-note"
+   ],
+   "summary": "Apply time and space complexity (Big O) analysis whenever writing, reviewing, or refactoring code."
+  },
+  "money-handling": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "money",
+     "currency",
+     "rounding",
+     "off by a (paisa|paise|cent)",
+     "\\bfx\\b",
+     "pricing",
+     "minor units"
+    ],
+    "content": [
+     "\\b(amount|price|fee|tax|discount|total|fx_rate|commission|refund_amount)\\b"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review code that touches money for representation correctness — integer minor units (paise/cents), ISO 4217 currency codes, precision-safe arithmetic, correct …"
+  },
+  "db-migration": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "migration",
+     "schema change",
+     "add (a )?column",
+     "alter table",
+     "backfill"
+    ],
+    "paths": [
+     "**/migrations/**",
+     "**/alembic/versions/**",
+     "**/db/migrate/**",
+     "**/flyway/**",
+     "**/liquibase/**",
+     "**/V*__*.sql",
+     "**/*_migration.py"
+    ],
+    "content": [
+     "\\bALTER TABLE\\b",
+     "\\bCREATE (UNIQUE )?INDEX\\b",
+     "\\bDROP (TABLE|COLUMN)\\b",
+     "migrations\\.(AddField|AlterField|RemoveField|RunPython)"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "design"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review or design a database schema migration (Postgres, MySQL, MongoDB) for safety at scale."
+  },
+  "refactor": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "refactor",
+     "clean (this|it) up",
+     "\\bsplit (this|the)\\b",
+     "extract (this|a|the) ",
+     "restructure"
+    ]
+   },
+   "inputs": [
+    "debt-register"
+   ],
+   "outputs": [
+    "diff"
+   ],
+   "summary": "Safe refactor — restructure code without changing behavior."
+  },
+  "feature-flag-rollout": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "feature flag",
+     "feature toggle",
+     "kill switch",
+     "progressive (rollout|delivery)",
+     "dark launch",
+     "ramp (up|to)"
+    ],
+    "content": [
+     "(is_enabled|isEnabled|feature_flag|featureFlag|flags?\\.(get|is|variation))\\("
+    ],
+    "events": [
+     "design-ready"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "deploy-plan"
+   ],
+   "summary": "Wrap a risky change in a feature flag and plan its rollout — picks the flag type (release / ops / experiment / permission), names it, defaults it off, adds a …"
+  },
+  "reconciliation-design": {
+   "phase": "build",
+   "triggers": {
+    "intents": [
+     "reconcil",
+     "\\brecon\\b",
+     "settlement",
+     "ledger (does not|doesn.t) match",
+     "unexplained breaks"
+    ],
+    "content": [
+     "\\b(reconcile|reconciliation|settlement|ledger|statement)\\b"
+    ]
+   },
+   "inputs": [
+    "design"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Design or review a reconciliation engine that matches records across systems — PG statements vs internal transactions, bank statements vs settlement records …"
+  },
+  "test-generation": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "(write|add|generate) (unit |integration )?tests?",
+     "test (this|for)",
+     "cover (this|with tests)"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "tests"
+   ],
+   "outputs": [
+    "tests"
+   ],
+   "summary": "Generate unit and integration tests for a given function, class, or module."
+  },
+  "test-gap": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "test gap",
+     "missing tests",
+     "what.s (not )?tested",
+     "coverage (gap|diff|report)",
+     "untested"
+    ],
+    "always_on": [
+     "pr-opened"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "tests"
+   ],
+   "summary": "Find missing tests for a diff or branch — maps every changed function and branch to the tests that exercise it, uses a coverage diff when available …"
+  },
+  "e2e-testing": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "\\be2e\\b",
+     "end[- ]to[- ]end",
+     "playwright",
+     "user flow test",
+     "test (this|the) flow"
+    ],
+    "paths": [
+     "**/e2e/**",
+     "**/*.spec.ts",
+     "**/playwright.config.*"
+    ]
+   },
+   "inputs": [
+    "prd",
+    "diff"
+   ],
+   "outputs": [
+    "tests"
+   ],
+   "summary": "Generate end-to-end Playwright tests from a feature spec, user flow, or UI walkthrough."
+  },
+  "contract-testing": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "contract test",
+     "\\bpact\\b",
+     "consumer[- ]driven",
+     "can-i-deploy",
+     "provider (state|verification)"
+    ],
+    "paths": [
+     "**/pacts/**",
+     "**/*.pact.json",
+     "**/contracts/**"
+    ]
+   },
+   "inputs": [
+    "api-contract"
+   ],
+   "outputs": [
+    "tests"
+   ],
+   "summary": "Set up consumer-driven contract tests between services — Pact (or Spring Cloud Contract, or schema-based contracts from OpenAPI / AsyncAPI / Protobuf) …"
+  },
+  "load-testing": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "load test",
+     "stress test",
+     "soak test",
+     "spike test",
+     "\\bk6\\b",
+     "locust",
+     "gatling",
+     "how much (traffic|load|rps)"
+    ],
+    "paths": [
+     "**/load/**",
+     "**/k6/**",
+     "**/locustfile.py"
+    ],
+    "events": [
+     "pre-deploy"
+    ]
+   },
+   "inputs": [
+    "slo",
+    "design"
+   ],
+   "outputs": [
+    "tests"
+   ],
+   "summary": "Design a proactive load, stress, soak, or spike test before release — a workload model from the real traffic mix, a target RPS derived from the SLO plus …"
+  },
+  "a11y-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "a11y",
+     "accessib",
+     "\\bwcag\\b",
+     "screen reader",
+     "aria",
+     "keyboard nav"
+    ],
+    "paths": [
+     "**/*.tsx",
+     "**/*.jsx",
+     "**/*.vue",
+     "**/*.svelte",
+     "**/*.html"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review frontend changes for accessibility against WCAG 2.2 AA — semantic HTML, roles and ARIA (first rule of ARIA), keyboard operability, focus order and …"
+  },
+  "code-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "review (this|my|the) (pr|change|diff|code)",
+     "code review",
+     "\\blgtm\\b",
+     "look at (this|my) diff"
+    ],
+    "always_on": [
+     "pr-opened",
+     "pr-updated"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "pr"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review a pull request or a set of code changes."
+  },
+  "security-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "security (review|issue|hole|bug|concern|check)",
+     "vulnerab",
+     "\\bowasp\\b",
+     "\\bxss\\b",
+     "\\bssrf\\b",
+     "sql injection",
+     "is this (safe|secure)"
+    ],
+    "paths": [
+     "**/auth/**",
+     "**/*auth*",
+     "**/*login*",
+     "**/*session*",
+     "**/*crypto*",
+     "**/*token*",
+     "**/middleware/**"
+    ],
+    "content": [
+     "\\b(password|secret|api_key|token|jwt|hmac|encrypt|decrypt|eval|exec|subprocess|innerHTML|dangerouslySetInnerHTML)\\b"
+    ],
+    "always_on": [
+     "pr-opened"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "threat-model"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Security-focused review of a diff or file."
+  },
+  "idempotency-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "idempoten",
+     "safe to retry",
+     "double[- ](charge|refund|booking)",
+     "processed twice",
+     "retry (storm|safely)"
+    ],
+    "paths": [
+     "**/payments/**",
+     "**/refunds/**",
+     "**/payouts/**",
+     "**/orders/**",
+     "**/bookings/**",
+     "**/consumers/**",
+     "**/jobs/**",
+     "**/workers/**"
+    ],
+    "content": [
+     "[Ii]dempotency[-_]?[Kk]ey",
+     "\\b(refund|payout|charge|capture)\\b"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review idempotency correctness on mutating endpoints, background jobs, webhook consumers, and refund/payout flows."
+  },
+  "webhook-hardening": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "webhook",
+     "callback (handler|endpoint)",
+     "signature verif",
+     "forged event"
+    ],
+    "paths": [
+     "**/*webhook*",
+     "**/*callback*",
+     "**/webhooks/**"
+    ],
+    "content": [
+     "webhook",
+     "X-[A-Za-z-]*-Signature",
+     "hmac\\.(new|compare_digest)",
+     "timingSafeEqual"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review a webhook receiver for the full defensive stack — signature verification (HMAC timing-safe), timestamp replay window, dedup by provider event id …"
+  },
+  "compliance-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "compliance",
+     "\\bpci\\b",
+     "\\brbi\\b",
+     "\\bdpdpa?\\b",
+     "\\bkyc\\b",
+     "will this pass audit",
+     "data locali[sz]ation"
+    ],
+    "paths": [
+     "**/kyc/**",
+     "**/cards/**",
+     "**/mandates/**"
+    ],
+    "content": [
+     "\\b(pan|cvv|card_number|cardNumber|aadhaar|account_number|ifsc)\\b"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Map a code change against the compliance regimes India-fintech has to satisfy — PCI DSS (cardholder data), RBI (tokenization, data localization, KYC), NPCI …"
+  },
+  "iac-review": {
+   "phase": "verify",
+   "triggers": {
+    "intents": [
+     "terraform",
+     "\\bhelm\\b",
+     "k8s manifest",
+     "kubernetes (yaml|manifest)",
+     "infra (pr|change)",
+     "\\bcdk\\b",
+     "pulumi"
+    ],
+    "paths": [
+     "**/*.tf",
+     "**/*.tfvars",
+     "**/*.hcl",
+     "**/Chart.yaml",
+     "**/values*.yaml",
+     "**/k8s/**",
+     "**/manifests/**",
+     "**/taskdef*.json",
+     "**/helm/**"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review Infrastructure-as-Code — Terraform, AWS CDK, Pulumi, Kubernetes manifests, Helm charts, ECS task definitions."
+  },
+  "commit-message": {
+   "phase": "ship",
+   "triggers": {
+    "intents": [
+     "commit message",
+     "write (a|the) commit",
+     "conventional commit"
+    ],
+    "always_on": [
+     "pre-commit"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "commit"
+   ],
+   "summary": "Generate a Conventional Commits message from a staged diff."
+  },
+  "pr-description": {
+   "phase": "ship",
+   "triggers": {
+    "intents": [
+     "pr description",
+     "(open|create|raise) (a )?(pr|pull request)",
+     "gh pr create"
+    ],
+    "always_on": [
+     "pr-opened"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "findings",
+    "tests",
+    "prd"
+   ],
+   "outputs": [
+    "pr"
+   ],
+   "summary": "Generate a pull-request description from the branch diff."
+  },
+  "release-notes": {
+   "phase": "ship",
+   "triggers": {
+    "intents": [
+     "release notes",
+     "changelog",
+     "what changed since"
+    ],
+    "paths": [
+     "**/CHANGELOG*"
+    ]
+   },
+   "inputs": [
+    "pr"
+   ],
+   "outputs": [
+    "release-notes"
+   ],
+   "summary": "Generate release notes / changelog entries from merged PRs, commits, or a version diff."
+  },
+  "deploy-plan": {
+   "phase": "ship",
+   "triggers": {
+    "intents": [
+     "deploy(ment)? plan",
+     "how (do|should) we (deploy|roll ?out)",
+     "rollback plan",
+     "canary",
+     "blue[- ]green",
+     "devops handoff"
+    ],
+    "always_on": [
+     "pre-deploy"
+    ]
+   },
+   "inputs": [
+    "pr",
+    "findings",
+    "design"
+   ],
+   "outputs": [
+    "deploy-plan"
+   ],
+   "summary": "Produce a per-change deployment plan — deploy order across services, database, and config (expand → migrate → contract), env vars / secrets / infra …"
+  },
+  "production-readiness": {
+   "phase": "ship",
+   "triggers": {
+    "intents": [
+     "production readiness",
+     "launch (checklist|review)",
+     "go[ /-]no[- ]go",
+     "ready for prod",
+     "\\bprr\\b"
+    ],
+    "events": [
+     "pre-deploy"
+    ]
+   },
+   "inputs": [
+    "slo",
+    "runbook",
+    "dashboards",
+    "tests"
+   ],
+   "outputs": [
+    "readiness"
+   ],
+   "summary": "Run a go/no-go production readiness gate before a first launch or a major change."
+  },
+  "observability": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "dashboard",
+     "add alerts?",
+     "observability",
+     "instrument",
+     "grafana",
+     "prometheus",
+     "\\bloki\\b",
+     "metrics for"
+    ],
+    "paths": [
+     "**/dashboards/**",
+     "**/alerts/**",
+     "**/*.rules.yml"
+    ]
+   },
+   "inputs": [
+    "slo",
+    "diff"
+   ],
+   "outputs": [
+    "dashboards"
+   ],
+   "summary": "Generate Grafana dashboards, Prometheus alert rules, and Loki queries from service code."
+  },
+  "slo-definition": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "\\bslo",
+     "\\bsli",
+     "error budget",
+     "burn[- ]rate",
+     "service level"
+    ]
+   },
+   "inputs": [
+    "prd",
+    "design"
+   ],
+   "outputs": [
+    "slo"
+   ],
+   "summary": "Define SLIs, SLOs, and error budgets for a service starting from its user journeys."
+  },
+  "runbook": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "runbook",
+     "playbook",
+     "how should we respond to",
+     "what do (we|i) do when"
+    ],
+    "paths": [
+     "**/runbooks/**"
+    ]
+   },
+   "inputs": [
+    "dashboards",
+    "slo"
+   ],
+   "outputs": [
+    "runbook"
+   ],
+   "summary": "Generate an incident runbook for a service, alert, or symptom."
+  },
+  "oncall-triage": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "(got|been) paged",
+     "triage (this|the) alert",
+     "alert (just )?fired",
+     "on-?call",
+     "production is down",
+     "\\bp[0-2]\\b"
+    ],
+    "always_on": [
+     "alert"
+    ]
+   },
+   "inputs": [
+    "runbook"
+   ],
+   "outputs": [
+    "triage"
+   ],
+   "summary": "Alert-to-action decision tree for an on-call engineer."
+  },
+  "incident-comms": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "status page",
+     "incident (update|comms|communication)",
+     "tell (customers|stakeholders)",
+     "exec summary"
+    ],
+    "events": [
+     "alert"
+    ]
+   },
+   "inputs": [
+    "triage"
+   ],
+   "outputs": [
+    "timeline"
+   ],
+   "summary": "Run communication during an active incident — assign roles (incident commander, comms lead), set internal update cadence by severity, and draft status-page …"
+  },
+  "log-analysis": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "analy[sz]e (these|the) logs",
+     "correlate logs",
+     "log(s)? (show|say)",
+     "logql",
+     "trace id"
+    ]
+   },
+   "inputs": [
+    "triage"
+   ],
+   "outputs": [
+    "timeline"
+   ],
+   "summary": "Parse and correlate raw logs into an incident timeline."
+  },
+  "cost-review": {
+   "phase": "operate",
+   "triggers": {
+    "intents": [
+     "\\bcost\\b",
+     "cloud (bill|spend)",
+     "too expensive",
+     "finops",
+     "infracost",
+     "right[- ]?siz"
+    ],
+    "events": [
+     "schedule"
+    ]
+   },
+   "inputs": [
+    "diff"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Review the cloud cost of a service or an infrastructure-as-code change."
+  },
+  "bug-repro": {
+   "phase": "learn",
+   "triggers": {
+    "intents": [
+     "bug report",
+     "reproduc",
+     "customer (says|reported|complain)",
+     "steps to repro"
+    ],
+    "always_on": [
+     "bug-report"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "repro"
+   ],
+   "summary": "Turn a raw bug report into a minimal, reliable reproduction."
+  },
+  "debug": {
+   "phase": "learn",
+   "triggers": {
+    "intents": [
+     "\\bdebug",
+     "why is (this|it|x) (failing|broken|crashing)",
+     "stack ?trace",
+     "traceback",
+     "flaky",
+     "not working"
+    ]
+   },
+   "inputs": [
+    "repro"
+   ],
+   "outputs": [
+    "diff",
+    "tests"
+   ],
+   "summary": "Systematic debugging loop — hypothesize the cause, instrument to prove it, narrow the surface, repeat."
+  },
+  "perf-analysis": {
+   "phase": "learn",
+   "triggers": {
+    "intents": [
+     "(is|too|so) slow",
+     "make (it|this|x) faster",
+     "\\bprofil",
+     "latency (spike|regression)",
+     "\\bp9[59]\\b",
+     "timeout"
+    ],
+    "always_on": [
+     "slow"
+    ]
+   },
+   "inputs": [
+    "timeline"
+   ],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Analyze performance of a service, endpoint, or code path."
+  },
+  "rca": {
+   "phase": "learn",
+   "triggers": {
+    "intents": [
+     "\\brca\\b",
+     "root cause",
+     "post-?mortem",
+     "what caused"
+    ],
+    "always_on": [
+     "incident-resolved"
+    ]
+   },
+   "inputs": [
+    "timeline",
+    "triage"
+   ],
+   "outputs": [
+    "rca",
+    "action-items"
+   ],
+   "summary": "Orchestrate a root-cause analysis for an incident, bug, or outage."
+  },
+  "retro": {
+   "phase": "learn",
+   "triggers": {
+    "intents": [
+     "\\bretro",
+     "debrief",
+     "what went well"
+    ]
+   },
+   "inputs": [
+    "rca"
+   ],
+   "outputs": [
+    "action-items"
+   ],
+   "summary": "Facilitate a sprint or incident retrospective."
+  },
+  "dependency-upgrade": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "upgrade",
+     "\\bbump\\b",
+     "\\bcve\\b",
+     "dependabot",
+     "renovate",
+     "outdated dep"
+    ],
+    "paths": [
+     "**/package.json",
+     "**/package-lock.json",
+     "**/pnpm-lock.yaml",
+     "**/yarn.lock",
+     "**/requirements*.txt",
+     "**/pyproject.toml",
+     "**/poetry.lock",
+     "**/uv.lock",
+     "**/go.mod",
+     "**/go.sum",
+     "**/Gemfile*",
+     "**/pom.xml",
+     "**/build.gradle*",
+     "**/Cargo.toml"
+    ],
+    "always_on": [
+     "dependency-alert"
+    ]
+   },
+   "inputs": [
+    "debt-register"
+   ],
+   "outputs": [
+    "diff"
+   ],
+   "summary": "Plan and execute a dependency version upgrade — Python 3.x, Node LTS, Go, framework major versions, or transitive dep bumps for CVEs."
+  },
+  "tech-debt-scan": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "tech(nical)? debt",
+     "hotspots?",
+     "code smells",
+     "what should we (clean up|refactor)",
+     "todo inventory"
+    ],
+    "events": [
+     "schedule"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "debt-register"
+   ],
+   "summary": "Scan a repository for technical debt and produce a ranked debt register."
+  },
+  "deprecation": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "deprecat",
+     "sunset",
+     "remove (this|the|an?) (api|endpoint|feature|flag)",
+     "end[- ]of[- ]life",
+     "kill (this|the) (endpoint|feature)"
+    ],
+    "content": [
+     "@[Dd]eprecated",
+     "DeprecationWarning",
+     "\\bSunset\\b",
+     "Deprecation:"
+    ]
+   },
+   "inputs": [
+    "debt-register"
+   ],
+   "outputs": [
+    "deploy-plan"
+   ],
+   "summary": "Safely deprecate and remove an API, endpoint, feature, feature flag, config key, or library function."
+  },
+  "capability-extraction": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "what (behaviou?rs|capabilities) should (this|the|x) (service )?not own",
+     "centralized services",
+     "cross-cutting depend",
+     "shared services"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Audit a single service for cross-cutting BEHAVIORS it implements locally that don't belong to its domain — notifications, PDF generation, file upload, audit …"
+  },
+  "db-scoping": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "tables? should (this|the|x) (service )?not touch",
+     "db scop",
+     "data ownership",
+     "bounded[- ]context",
+     "which tables does"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "findings"
+   ],
+   "summary": "Audit a single service for the database TABLES it touches — via raw SQL, ORM models/queries, and shared-model imports — then classify each as owned vs foreign …"
+  },
+  "docs-writer": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "write (the )?docs",
+     "generate (a )?readme",
+     "document (this|the) (module|api|package)",
+     "api docs"
+    ]
+   },
+   "inputs": [
+    "diff",
+    "api-contract"
+   ],
+   "outputs": [
+    "docs"
+   ],
+   "summary": "Generate README, API reference, or module docs from source code."
+  },
+  "onboarding": {
+   "phase": "maintain",
+   "triggers": {
+    "intents": [
+     "onboard",
+     "explain (this|the) (repo|codebase)",
+     "new to (this|the) repo",
+     "where do i start"
+    ]
+   },
+   "inputs": [],
+   "outputs": [
+    "docs"
+   ],
+   "summary": "Generate a repo walkthrough for a new joiner from the codebase itself."
+  },
+  "interview-kit": {
+   "phase": "team",
+   "triggers": {
+    "intents": [
+     "interview",
+     "take[- ]home",
+     "hiring (loop|panel)"
+    ]
+   },
+   "inputs": [],
+   "outputs": [],
+   "summary": "Generate a role-scoped technical interview kit — question set with working reference code, evaluation rubric, and difficulty progression."
+  }
+ }
+}
