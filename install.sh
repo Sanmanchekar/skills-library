@@ -7,6 +7,15 @@
 #   ./install.sh <skill-name> --agent claude-code,cursor,aider      # multiple agents (comma-separated)
 #   ./install.sh <skill-name> --agent all                           # every supported agent
 #   ./install.sh <skill-name> --scope user|project                  # default: user
+#   ./install.sh a,b,c --agent claude-code                          # several skills at once
+#   ./install.sh --bundle verify --agent claude-code                # every skill in a lifecycle phase
+#   ./install.sh --bundle all --agent claude-code --with-hooks      # whole lifecycle + Claude Code hooks
+#
+# Bundles (plan, build, verify, ship, operate, learn, maintain, team, all) come from
+# lifecycle/bundles.txt and always include the lifecycle-router skill. For claude-code
+# a bundle also installs the matching lifecycle-<phase> subagent(s) into agents/.
+# --with-hooks (claude-code only) merges hooks/claude-code/settings.json into
+# settings.json, keeping a .bak of the original.
 #
 # Supported agents:
 #   claude-code, codex-cli, cursor, aider, continue, cline,
@@ -25,33 +34,77 @@ RAW_BASE="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BR
 # Ordered agent list — MUST match the numbered picker indices below.
 ALL_AGENTS=(claude-code codex-cli cursor aider continue cline windsurf cody copilot-chat roo-code zed)
 
-SKILL_NAME="${1:-}"
-shift || true
+SKILL_ARG=""
+if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then SKILL_ARG="$1"; shift; fi
 
 AGENT=""
 SCOPE="user"
+BUNDLE=""
+WITH_HOOKS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) AGENT="$2"; shift 2 ;;
     --scope) SCOPE="$2"; shift 2 ;;
+    --bundle) BUNDLE="$2"; shift 2 ;;
     --agent=*) AGENT="${1#*=}"; shift ;;
     --scope=*) SCOPE="${1#*=}"; shift ;;
+    --bundle=*) BUNDLE="${1#*=}"; shift ;;
+    --with-hooks) WITH_HOOKS=1; shift ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
 done
 
-if [ -z "$SKILL_NAME" ]; then
-  echo "Usage: install.sh <skill-name> [--agent <agent>[,<agent>...]] [--scope user|project]" >&2
-  echo "Available skills: see README.md" >&2
+if [ -z "$SKILL_ARG" ] && [ -z "$BUNDLE" ] && [ "$WITH_HOOKS" = 0 ]; then
+  echo "Usage: install.sh <skill>[,<skill>...] | --bundle <phase|all> [--agent <agent>[,<agent>...]] [--scope user|project] [--with-hooks]" >&2
+  echo "Available skills: see README.md · phases: see docs/lifecycle.md" >&2
   exit 2
 fi
 
-# ---- locate skill source (local checkout or remote) ----
 SCRIPT_DIR="$( cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd )" || SCRIPT_DIR=""
-LOCAL_SKILL_DIR=""
-if [ -n "$SCRIPT_DIR" ] && [ -d "$SCRIPT_DIR/skills/$SKILL_NAME" ]; then
-  LOCAL_SKILL_DIR="$SCRIPT_DIR/skills/$SKILL_NAME"
+LOCAL_REPO=""
+if [ -n "$SCRIPT_DIR" ] && [ -d "$SCRIPT_DIR/skills" ]; then LOCAL_REPO="$SCRIPT_DIR"; fi
+
+# Fetch a repo-root-relative file (lifecycle/bundles.txt, agents/*.md, hooks/**).
+fetch_root() {
+  local rel="$1" dest="$2"
+  mkdir -p "$(dirname "$dest")"
+  if [ -n "$LOCAL_REPO" ]; then
+    [ -f "$LOCAL_REPO/$rel" ] && cp "$LOCAL_REPO/$rel" "$dest"
+  else
+    curl -fsSL "$RAW_BASE/$rel" -o "$dest"
+  fi
+}
+
+# ---- resolve the skill list ----
+SKILLS_LIST=""
+if [ -n "$SKILL_ARG" ]; then SKILLS_LIST="$(echo "$SKILL_ARG" | tr ',' ' ')"; fi
+if [ -n "$BUNDLE" ]; then
+  bundles_tmp="$(mktemp)"
+  fetch_root "lifecycle/bundles.txt" "$bundles_tmp" || { echo "FAIL: could not fetch lifecycle/bundles.txt" >&2; exit 1; }
+  line="$(grep -E "^${BUNDLE}:" "$bundles_tmp" | head -1 || true)"
+  rm -f "$bundles_tmp"
+  if [ -z "$line" ]; then
+    echo "Unknown bundle '$BUNDLE' (try: plan build verify ship operate learn maintain team all)" >&2
+    exit 2
+  fi
+  SKILLS_LIST="$SKILLS_LIST lifecycle-router ${line#*:}"
 fi
+if [ "$WITH_HOOKS" = 1 ]; then SKILLS_LIST="$SKILLS_LIST lifecycle-router"; fi
+# de-duplicate, keep order
+SKILLS_LIST="$(printf '%s\n' $SKILLS_LIST | awk 'NF && !seen[$0]++' | tr '\n' ' ')"
+SKILL_NAME="${BUNDLE:+bundle:$BUNDLE}"
+SKILL_NAME="${SKILL_NAME:-$SKILL_ARG}"
+SKILL_NAME="${SKILL_NAME:-lifecycle hooks}"
+
+# Per-skill source dir; set by select_skill before each install.
+LOCAL_SKILL_DIR=""
+select_skill() {
+  SKILL_NAME="$1"
+  LOCAL_SKILL_DIR=""
+  if [ -n "$LOCAL_REPO" ] && [ -d "$LOCAL_REPO/skills/$SKILL_NAME" ]; then
+    LOCAL_SKILL_DIR="$LOCAL_REPO/skills/$SKILL_NAME"
+  fi
+}
 
 fetch() {
   # $1 = relative path from skill dir, $2 = destination path
@@ -93,9 +146,16 @@ list_skill_assets() {
     # (GitHub emits path before type) and keep blobs only — directory entries must
     # never reach fetch(). `tr , \\n` normalises so the same pass also handles a
     # compact response.
+    # Fetched once per install and cached — a bundle installs dozens of skills and
+    # the unauthenticated GitHub API allows 60 calls an hour.
     local api_url="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/trees/${REPO_BRANCH}?recursive=1"
     local resp
-    resp="$(curl -fsSL "$api_url" 2>/dev/null)" || return 0
+    if [ -z "${TREE_CACHE:-}" ]; then
+      TREE_CACHE="$(mktemp)"
+      curl -fsSL "$api_url" -o "$TREE_CACHE" 2>/dev/null || : > "$TREE_CACHE"
+    fi
+    resp="$(cat "$TREE_CACHE")"
+    [ -n "$resp" ] || return 0
     # Never let a truncated tree become a silently partial install.
     if printf '%s' "$resp" | grep -qE '"truncated"[[:space:]]*:[[:space:]]*true'; then
       echo "  ! warning: repo tree listing was truncated — some $SKILL_NAME files may be missing" >&2
@@ -429,11 +489,75 @@ install_for() {
   echo "✓ Installed $SKILL_NAME for $agent → $dest_dir"
 }
 
-# ---- iterate the selected agents ----
+# ---- Claude Code extras: phase subagents and hooks ----
+install_claude_agents() {
+  local base phases p
+  if [ "$SCOPE" = "project" ]; then base=".claude/agents"; else base="$HOME/.claude/agents"; fi
+  if [ "$BUNDLE" = "all" ]; then phases="plan build verify ship operate learn maintain team"; else phases="$BUNDLE"; fi
+  for p in $phases; do
+    fetch_root "agents/lifecycle-$p.md" "$base/lifecycle-$p.md" \
+      && echo "✓ Installed subagent lifecycle-$p → $base/" \
+      || echo "  ! could not fetch agents/lifecycle-$p.md" >&2
+  done
+}
+
+install_claude_hooks() {
+  local settings snippet router
+  if [ "$SCOPE" = "project" ]; then
+    settings=".claude/settings.json"; router='$CLAUDE_PROJECT_DIR/.claude/skills/lifecycle-router/scripts/route.py'
+  else
+    settings="$HOME/.claude/settings.json"; router='$HOME/.claude/skills/lifecycle-router/scripts/route.py'
+  fi
+  command -v python3 >/dev/null || { echo "  ! --with-hooks needs python3" >&2; return 1; }
+  snippet="$(mktemp)"
+  fetch_root "hooks/claude-code/settings.json" "$snippet" || { echo "  ! could not fetch hooks snippet" >&2; return 1; }
+  mkdir -p "$(dirname "$settings")"
+  python3 - "$settings" "$snippet" "$router" <<'PYMERGE'
+import json, os, shutil, sys
+settings, snippet, router = sys.argv[1:4]
+want = json.load(open(snippet))["hooks"]
+cur = {}
+if os.path.exists(settings):
+    shutil.copy(settings, settings + ".bak")
+    with open(settings) as fh:
+        cur = json.load(fh)
+hooks = cur.setdefault("hooks", {})
+added = 0
+for event, groups in want.items():
+    have = hooks.setdefault(event, [])
+    for g in groups:
+        for h in g["hooks"]:
+            h["command"] = h["command"].replace("$HOME/.claude/skills/lifecycle-router/scripts/route.py", router)
+        cmds = {h["command"] for x in have for h in x.get("hooks", [])}
+        if all(h["command"] in cmds for h in g["hooks"]):
+            continue
+        have.append(g); added += 1
+with open(settings, "w") as fh:
+    json.dump(cur, fh, indent=2); fh.write("\n")
+print(f"✓ Lifecycle hooks: {added} hook group(s) added to {settings}" + (" (backup: .bak)" if os.path.exists(settings + ".bak") else ""))
+PYMERGE
+  rm -f "$snippet"
+}
+
+# ---- iterate skills × agents ----
 if [ -z "${AGENTS_LIST// /}" ]; then
   echo "No agents selected." >&2
   exit 1
 fi
-for a in $AGENTS_LIST; do
-  install_for "$a" || true
+for s in $SKILLS_LIST; do
+  select_skill "$s"
+  for a in $AGENTS_LIST; do
+    install_for "$a" || true
+  done
 done
+case " $AGENTS_LIST " in
+  *" claude-code "*)
+    [ -n "$BUNDLE" ] && install_claude_agents
+    [ "$WITH_HOOKS" = 1 ] && install_claude_hooks
+    ;;
+  *)
+    [ "$WITH_HOOKS" = 1 ] && echo "  ! --with-hooks only applies to claude-code; for other agents use hooks/git/pre-commit" >&2
+    ;;
+esac
+[ -n "${TREE_CACHE:-}" ] && rm -f "$TREE_CACHE"
+exit 0

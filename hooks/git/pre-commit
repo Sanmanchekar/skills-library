@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# skills-library lifecycle pre-commit hook — advisory, never blocks a commit.
+# Prints which skills apply to the staged change (commit-message, db-migration, …).
+# Install:  cp hooks/git/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Router location: $LIFECYCLE_ROUTER, else the first installed copy found below.
+set -u
+router="${LIFECYCLE_ROUTER:-}"
+if [ -z "$router" ]; then
+  for c in \
+    ".claude/skills/lifecycle-router/scripts/route.py" \
+    "$HOME/.claude/skills/lifecycle-router/scripts/route.py" \
+    "skills/lifecycle-router/scripts/route.py"; do
+    [ -f "$c" ] && { router="$c"; break; }
+  done
+fi
+[ -n "$router" ] && command -v python3 >/dev/null 2>&1 || exit 0
+out="$(python3 "$router" route --event pre-commit --staged 2>/dev/null)" || exit 0
+[ -n "$out" ] && printf '\n\033[2m[lifecycle-router] skills for this commit:\033[0m\n%s\n\n' "$out" >&2
+exit 0

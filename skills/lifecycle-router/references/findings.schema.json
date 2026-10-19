@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Sanmanchekar/skills-library/lifecycle/findings.schema.json",
+  "title": "Lifecycle findings",
+  "description": "One merged findings file per run, written by every reviewer skill to .lifecycle/<run>/findings.json.",
+  "type": "object",
+  "required": ["findings"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "status", "title", "sources"],
+        "properties": {
+          "id": {"type": "integer", "minimum": 1},
+          "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]},
+          "status": {"enum": ["open", "resolved", "wontfix", "retracted", "partially_fixed"]},
+          "category": {"type": "string", "description": "e.g. security, idempotency, money, migration, a11y, complexity"},
+          "file": {"type": "string"},
+          "line": {"type": "integer", "minimum": 1},
+          "title": {"type": "string"},
+          "problem": {"type": "string"},
+          "impact": {"type": "string"},
+          "suggested_fix": {"type": "string"},
+          "sources": {"type": "array", "items": {"type": "string"}, "minItems": 1,
+                      "description": "Every skill that raised this finding (dedupe merges them)"},
+          "reference": {"type": "string", "description": "CWE, WCAG SC, regulation clause, etc."}
+        }
+      }
+    }
+  }
+}

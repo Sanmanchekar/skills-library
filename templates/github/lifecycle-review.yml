@@ -1,0 +1,50 @@
+# Copy to .github/workflows/lifecycle-review.yml in any repo.
+# On every PR it computes which review skills apply to the diff (the @verify
+# fan-out from the skills-library lifecycle graph) and keeps ONE sticky comment
+# up to date. Advisory — it never fails the build.
+name: lifecycle-review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  fanout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch lifecycle router
+        env:
+          REF: main   # pin to a tag or SHA of Sanmanchekar/skills-library for reproducibility
+        run: |
+          base="https://raw.githubusercontent.com/Sanmanchekar/skills-library/${REF}/skills/lifecycle-router"
+          mkdir -p "$RUNNER_TEMP/router/scripts" "$RUNNER_TEMP/router/references"
+          curl -fsSL "$base/scripts/route.py"           -o "$RUNNER_TEMP/router/scripts/route.py"
+          curl -fsSL "$base/references/registry.json"   -o "$RUNNER_TEMP/router/references/registry.json"
+
+      - name: Compute reviewer fan-out
+        run: |
+          python3 "$RUNNER_TEMP/router/scripts/route.py" fanout \
+            --base "origin/${{ github.base_ref }}" --markdown > "$RUNNER_TEMP/fanout.md"
+          cat "$RUNNER_TEMP/fanout.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upsert sticky PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                 -q '.[] | select(.body | startswith("<!-- lifecycle-router:fanout -->")) | .id' | tail -1)
+          jq -Rs '{body: .}' < "$RUNNER_TEMP/fanout.md" > "$RUNNER_TEMP/payload.json"
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" --input "$RUNNER_TEMP/payload.json" >/dev/null
+          else
+            gh api "repos/$REPO/issues/$PR/comments" --input "$RUNNER_TEMP/payload.json" >/dev/null
+          fi

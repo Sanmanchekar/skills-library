@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - "skills/**"
+      - "lifecycle/**"
+      - "agents/**"
+      - "hooks/**"
+      - "docs/lifecycle.md"
+      - "docs/lifecycle.html"
+      - "install.sh"
       - "README.md"
       - ".github/workflows/validate.yml"
   push:
@@ -117,3 +123,54 @@ jobs:
             shellcheck install.sh || true
           fi
           bash -n install.sh
+
+  lifecycle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"   # the router must keep working on the oldest supported Python
+
+      - name: Install build deps
+        run: pip install pyyaml
+
+      - name: Validate graph and check generated files are fresh
+        run: python3 lifecycle/build.py --check
+
+      - name: Routing evals
+        run: python3 lifecycle/build.py eval
+
+      - name: Router smoke tests
+        run: |
+          set -euo pipefail
+          R=skills/lifecycle-router/scripts/route.py
+          python3 $R route --prompt "review this PR" --json | python3 -c 'import json,sys; assert json.load(sys.stdin)["skills"][0]["skill"]=="code-review"'
+          python3 $R next --after code-review >/dev/null
+          python3 $R fanout --paths migrations/0001_init.py --markdown | grep -q db-migration
+          # a hook must never fail, whatever it is fed
+          echo 'not json' | python3 $R hook
+          echo '{"hook_event_name":"UserPromptSubmit","prompt":"I got paged"}' | python3 $R hook | grep -q oncall-triage
+          # loop guardrail: max_iterations is a hard stop
+          tmp=$(mktemp -d); git -C "$tmp" init -q
+          for i in 1 2 3; do (cd "$tmp" && python3 "$GITHUB_WORKSPACE/$R" loop tick review --metric 5 >/dev/null); done
+          (cd "$tmp" && python3 "$GITHUB_WORKSPACE/$R" loop tick review --metric 5) | grep -q STOP
+
+      - name: Installer bundle dry run
+        run: |
+          set -euo pipefail
+          export HOME=$(mktemp -d)
+          ./install.sh --bundle verify --agent claude-code --with-hooks
+          test -f "$HOME/.claude/skills/lifecycle-router/references/registry.json"
+          test -f "$HOME/.claude/agents/lifecycle-verify.md"
+          grep -q route.py "$HOME/.claude/settings.json"
+
+      - name: Installer standalone skill (no router, no agents, no hooks)
+        run: |
+          set -euo pipefail
+          export HOME=$(mktemp -d)
+          ./install.sh debug --agent claude-code
+          test -f "$HOME/.claude/skills/debug/SKILL.md"
+          test ! -e "$HOME/.claude/skills/lifecycle-router"
+          test ! -e "$HOME/.claude/agents"
+          test ! -e "$HOME/.claude/settings.json"
